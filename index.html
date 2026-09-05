@@ -1,0 +1,1745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>YearScope — Weather, Sunlight &amp; Seasons</title>
+<meta name="description" content="A free, no-login dashboard for exploring a full year of weather patterns, sunrise/sunset times, and seasonal transitions for any location on Earth.">
+<meta name="theme-color" content="#F6F7F4">
+<meta property="og:title" content="YearScope — Weather • Sunlight • Seasons">
+<meta property="og:description" content="Explore an entire year of daylight, temperature and rainfall patterns for any location. Free, no login, no ads.">
+<meta property="og:type" content="website">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%232F6690'/%3E%3Ccircle cx='50' cy='58' r='22' fill='%23E8A33D'/%3E%3Cpath d='M8 78 Q50 55 92 78' stroke='%23F6F7F4' stroke-width='6' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{
+  --ink:#16232B;
+  --ink-soft:#4B5C64;
+  --ink-faint:#7C8B92;
+  --paper:#F6F7F4;
+  --paper-raised:#FFFFFF;
+  --line:#DEE4E1;
+  --line-soft:#EBEFED;
+  --sky:#2F6690;
+  --sky-deep:#1B4965;
+  --sky-tint:#E7EFF3;
+  --amber:#DB9A34;
+  --amber-tint:#FBF0DC;
+  --dusk:#6B4E8E;
+  --dusk-tint:#F0EBF6;
+  --rain:#2C7A5C;
+  --rain-tint:#E6F2EC;
+  --danger:#B3432B;
+  --danger-tint:#F8E8E2;
+  --radius-s:10px;
+  --radius-m:16px;
+  --radius-l:24px;
+  --shadow:0 1px 2px rgba(22,35,43,.05), 0 6px 18px rgba(22,35,43,.07);
+  --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --nav-h:64px;
+  --header-h:56px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:var(--font);
+  background:var(--paper);
+  color:var(--ink);
+  -webkit-font-smoothing:antialiased;
+  line-height:1.45;
+  padding-bottom:calc(var(--nav-h) + env(safe-area-inset-bottom));
+  min-height:100vh;
+}
+h1,h2,h3,h4{margin:0 0 4px;font-weight:700;letter-spacing:-.01em}
+p{margin:0}
+button{font-family:inherit}
+a{color:inherit}
+.visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+:focus-visible{outline:3px solid var(--sky);outline-offset:2px;border-radius:4px}
+
+/* ---------- Header ---------- */
+header.app-header{
+  position:sticky;top:0;z-index:20;
+  background:var(--paper);
+  border-bottom:1px solid var(--line);
+  padding:10px 14px calc(10px + env(safe-area-inset-top)) 14px;
+  padding-top:calc(10px + env(safe-area-inset-top));
+}
+.brand-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.brand{display:flex;flex-direction:column;line-height:1.1}
+.brand-name{font-size:20px;font-weight:800;letter-spacing:-.02em;color:var(--sky-deep)}
+.brand-tag{font-size:11px;color:var(--ink-faint);font-weight:600}
+.loc-btn{
+  display:flex;align-items:center;gap:6px;
+  background:var(--paper-raised);border:1px solid var(--line);
+  border-radius:999px;padding:8px 14px;font-size:13px;font-weight:600;
+  color:var(--ink);max-width:56vw;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  min-height:40px;
+}
+.loc-btn svg{flex:0 0 auto}
+
+/* ---------- Views / layout ---------- */
+main{max-width:720px;margin:0 auto;padding:14px 14px 28px}
+.view{display:none}
+.view.active{display:block}
+.section-title{
+  font-size:13px;text-transform:none;color:var(--ink-faint);
+  font-weight:700;margin:22px 0 10px;
+}
+.section-title:first-child{margin-top:4px}
+
+/* ---------- Cards ---------- */
+.card{
+  background:var(--paper-raised);
+  border:1px solid var(--line-soft);
+  border-radius:var(--radius-m);
+  padding:16px;
+  box-shadow:var(--shadow);
+}
+.card + .card{margin-top:12px}
+.card-flat{border-radius:var(--radius-s);box-shadow:none;border:1px solid var(--line)}
+
+/* ---------- Today hero ---------- */
+.hero{
+  background:linear-gradient(180deg,var(--sky-deep) 0%,var(--sky) 100%);
+  color:#fff;border-radius:var(--radius-l);padding:20px 18px 16px;position:relative;overflow:hidden;
+}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+.hero-temp{font-size:56px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.hero-cond{font-size:14px;opacity:.9;margin-top:2px;font-weight:600}
+.hero-hilo{font-size:13px;opacity:.85;margin-top:6px}
+.hero-updated{font-size:11px;opacity:.7;text-align:right}
+.arc-wrap{margin-top:10px}
+.arc-caption{display:flex;justify-content:space-between;font-size:12px;opacity:.9;margin-top:2px;font-variant-numeric:tabular-nums}
+.hero-badges{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.badge{
+  background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);
+  border-radius:999px;padding:5px 11px;font-size:12px;font-weight:600;
+  display:flex;gap:5px;align-items:center;
+}
+
+/* ---------- Stat grid ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+.stat{
+  background:var(--paper-raised);border:1px solid var(--line-soft);border-radius:var(--radius-s);
+  padding:12px 12px;
+}
+.stat-label{font-size:11.5px;color:var(--ink-faint);font-weight:600;margin-bottom:4px}
+.stat-val{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+.stat-sub{font-size:11.5px;color:var(--ink-faint);margin-top:2px}
+
+/* ---------- Sun times list ---------- */
+.suntimes-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 14px}
+.suntime-row{display:flex;justify-content:space-between;align-items:center;padding:9px 2px;border-bottom:1px solid var(--line-soft);font-size:13.5px}
+.suntime-row:last-child{border-bottom:none}
+.suntime-label{color:var(--ink-soft);font-weight:600}
+.suntime-val{font-variant-numeric:tabular-nums;font-weight:700}
+
+/* ---------- Bottom nav ---------- */
+nav.bottom-nav{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;
+  background:var(--paper-raised);border-top:1px solid var(--line);
+  padding:6px 4px calc(4px + env(safe-area-inset-bottom));
+  display:flex;justify-content:space-around;
+}
+.nav-btn{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  background:none;border:none;padding:8px 2px;color:var(--ink-faint);
+  font-size:10.5px;font-weight:700;border-radius:12px;min-height:52px;
+}
+.nav-btn svg{width:22px;height:22px}
+.nav-btn.active{color:var(--sky-deep)}
+.nav-btn.active svg{filter:none}
+
+/* ---------- Buttons / forms ---------- */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  background:var(--sky-deep);color:#fff;border:none;border-radius:12px;
+  padding:11px 16px;font-size:14px;font-weight:700;min-height:44px;
+}
+.btn.secondary{background:var(--paper-raised);color:var(--ink);border:1px solid var(--line)}
+.btn.danger{background:var(--danger-tint);color:var(--danger)}
+.btn:disabled{opacity:.5}
+.btn-row{display:flex;gap:8px;flex-wrap:wrap}
+input[type="text"],select{
+  width:100%;padding:11px 12px;border:1px solid var(--line);border-radius:10px;
+  font-size:15px;font-family:inherit;background:var(--paper-raised);color:var(--ink);min-height:44px;
+}
+label.field-label{font-size:12.5px;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+.field{margin-bottom:14px}
+.seg{display:flex;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.seg button{
+  flex:1;padding:10px 6px;background:var(--paper-raised);border:none;font-size:13.5px;font-weight:700;
+  color:var(--ink-soft);border-right:1px solid var(--line);min-height:44px;
+}
+.seg button:last-child{border-right:none}
+.seg button[aria-pressed="true"]{background:var(--sky-deep);color:#fff}
+
+/* ---------- Location search modal ---------- */
+.modal-overlay{
+  position:fixed;inset:0;background:rgba(22,35,43,.45);z-index:50;
+  display:flex;align-items:flex-end;justify-content:center;
+}
+.modal-overlay.hidden{display:none}
+.modal-sheet{
+  background:var(--paper);width:100%;max-width:720px;border-radius:20px 20px 0 0;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:85vh;overflow-y:auto;
+  box-shadow:0 -8px 30px rgba(0,0,0,.2);
+}
+.modal-title-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:12px}
+.close-x{background:none;border:none;font-size:20px;padding:6px 10px;color:var(--ink-faint);min-height:44px;min-width:44px}
+.result-item{
+  width:100%;text-align:left;background:none;border:none;border-bottom:1px solid var(--line-soft);
+  padding:12px 4px;font-size:14.5px;color:var(--ink);display:flex;flex-direction:column;gap:2px;min-height:56px;justify-content:center;
+}
+.result-sub{font-size:12px;color:var(--ink-faint)}
+.geo-btn{width:100%;justify-content:center;margin:4px 0 14px}
+
+/* ---------- Month grid (Year view) ---------- */
+.month-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.month-cell{
+  border:1px solid var(--line-soft);border-radius:var(--radius-s);padding:10px 8px;
+  text-align:left;background:var(--paper-raised);min-height:78px;
+}
+.month-cell .m-name{font-size:12.5px;font-weight:700;color:var(--ink-soft)}
+.month-cell .m-temp{font-size:16px;font-weight:800;margin-top:4px;font-variant-numeric:tabular-nums}
+.month-cell .m-rain{font-size:11px;color:var(--sky-deep);margin-top:2px;font-weight:600}
+
+/* ---------- Charts ---------- */
+.chart-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+canvas.chart-canvas{display:block;touch-action:pan-y}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:10px;font-size:12px}
+.legend-item{display:flex;align-items:center;gap:5px;color:var(--ink-soft);font-weight:600}
+.legend-swatch{width:12px;height:4px;border-radius:2px;display:inline-block}
+.legend-swatch.dot{width:9px;height:9px;border-radius:50%}
+
+/* ---------- Season timeline ---------- */
+.timeline-track{position:relative;height:52px;border-radius:12px;overflow:hidden;display:flex}
+.timeline-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;min-width:0}
+.timeline-months{display:flex;margin-top:4px;font-size:10px;color:var(--ink-faint);font-weight:600}
+.timeline-months span{flex:1;text-align:center}
+.season-note{
+  border-left:3px solid var(--sky);background:var(--sky-tint);border-radius:0 10px 10px 0;
+  padding:10px 12px;font-size:13px;margin-top:8px;color:var(--ink);
+}
+.season-note b{color:var(--sky-deep)}
+
+/* ---------- Data status / badges ---------- */
+.data-status{
+  display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-faint);
+  margin-top:10px;flex-wrap:wrap;
+}
+.tag{
+  display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:3px 9px;
+  font-size:11px;font-weight:700;
+}
+.tag.forecast{background:var(--sky-tint);color:var(--sky-deep)}
+.tag.historical{background:var(--amber-tint);color:#8A5A12}
+.tag.estimated{background:var(--dusk-tint);color:var(--dusk)}
+.tag.cached{background:var(--line-soft);color:var(--ink-soft)}
+.tag.live{background:var(--rain-tint);color:var(--rain)}
+
+/* ---------- Banner / toast ---------- */
+.banner{
+  border-radius:var(--radius-s);padding:12px 14px;font-size:13.5px;margin-bottom:12px;
+  display:flex;gap:10px;align-items:flex-start;
+}
+.banner.error{background:var(--danger-tint);color:var(--danger)}
+.banner.info{background:var(--sky-tint);color:var(--sky-deep)}
+.banner.warn{background:var(--amber-tint);color:#8A5A12}
+.banner p{flex:1}
+#toast{
+  position:fixed;left:50%;bottom:calc(var(--nav-h) + 14px);transform:translateX(-50%);
+  background:var(--ink);color:#fff;padding:10px 16px;border-radius:999px;font-size:13px;
+  font-weight:600;z-index:60;opacity:0;pointer-events:none;transition:opacity .25s;max-width:88vw;text-align:center;
+}
+#toast.show{opacity:1}
+
+/* ---------- Date detail modal content ---------- */
+.detail-date-head{display:flex;flex-direction:column;margin-bottom:12px}
+.detail-date-head .dd-date{font-size:20px;font-weight:800}
+.detail-date-head .dd-day{font-size:13px;color:var(--ink-faint);font-weight:600}
+
+/* ---------- Skeleton loading ---------- */
+.skel{background:linear-gradient(90deg,var(--line-soft) 25%,var(--line) 37%,var(--line-soft) 63%);
+  background-size:400% 100%;animation:skel 1.4s ease infinite;border-radius:8px}
+@keyframes skel{0%{background-position:100% 50%}100%{background-position:0 50%}}
+@media (prefers-reduced-motion:reduce){.skel{animation:none}}
+
+/* ---------- Settings ---------- */
+.settings-row{display:flex;justify-content:space-between;align-items:center;padding:12px 2px;border-bottom:1px solid var(--line-soft);gap:12px}
+.settings-row:last-child{border-bottom:none}
+.settings-row .sr-label{font-size:14px;font-weight:600}
+.settings-row .sr-sub{font-size:12px;color:var(--ink-faint);margin-top:2px}
+
+.footer-note{font-size:11.5px;color:var(--ink-faint);text-align:center;margin-top:20px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header class="app-header">
+  <div class="brand-row">
+    <div class="brand">
+      <span class="brand-name">YearScope</span>
+      <span class="brand-tag">Weather • Sunlight • Seasons</span>
+    </div>
+    <button class="loc-btn" id="locBtn" aria-haspopup="dialog" aria-controls="locModal">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s7-7.58 7-12A7 7 0 0 0 5 10c0 4.42 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>
+      <span id="locBtnText">Loading…</span>
+    </button>
+  </div>
+</header>
+
+<main id="mainContent">
+
+  <!-- HOME VIEW -->
+  <section class="view active" id="view-home" aria-labelledby="home-heading">
+    <h1 class="visually-hidden" id="home-heading">Today</h1>
+    <div id="homeBanner"></div>
+    <div class="hero" id="heroCard">
+      <div class="hero-top">
+        <div>
+          <div class="hero-temp" id="heroTemp">—°</div>
+          <div class="hero-cond" id="heroCond">Loading forecast…</div>
+          <div class="hero-hilo" id="heroHiLo">H: —° · L: —°</div>
+        </div>
+        <div class="hero-updated" id="heroUpdated"></div>
+      </div>
+      <div class="arc-wrap">
+        <svg id="sunArc" viewBox="0 0 300 110" width="100%" height="90" role="img" aria-label="Sun position between sunrise and sunset"></svg>
+        <div class="arc-caption">
+          <span id="arcSunrise">Sunrise —</span>
+          <span id="arcSunset">Sunset —</span>
+        </div>
+      </div>
+      <div class="hero-badges">
+        <span class="badge" id="badgeRain">💧 —% rain</span>
+        <span class="badge" id="badgeDaylen">☀ — daylight</span>
+      </div>
+    </div>
+
+    <div class="section-title">Today's numbers</div>
+    <div class="stat-grid" id="statGrid">
+      <div class="stat"><div class="stat-label">Max temperature</div><div class="stat-val" id="statMax">—</div></div>
+      <div class="stat"><div class="stat-label">Min temperature</div><div class="stat-val" id="statMin">—</div></div>
+      <div class="stat"><div class="stat-label">Precipitation</div><div class="stat-val" id="statPrecip">—</div></div>
+      <div class="stat"><div class="stat-label">Rain probability</div><div class="stat-val" id="statRainProb">—</div></div>
+    </div>
+
+    <div class="section-title">Sun &amp; twilight today</div>
+    <div class="card">
+      <div class="suntimes-grid" id="suntimesGrid"></div>
+      <div class="data-status" id="homeDataStatus"></div>
+    </div>
+  </section>
+
+  <!-- YEAR VIEW -->
+  <section class="view" id="view-year" aria-labelledby="year-heading">
+    <h1 class="visually-hidden" id="year-heading">Year at a glance</h1>
+    <div id="yearBanner"></div>
+    <div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:10px">
+      <button class="btn secondary" id="yearPrev" aria-label="Previous year">‹</button>
+      <div style="text-align:center">
+        <div style="font-size:20px;font-weight:800" id="yearLabel">—</div>
+        <div style="font-size:11.5px;color:var(--ink-faint)" id="yearKind">—</div>
+      </div>
+      <button class="btn secondary" id="yearNext" aria-label="Next year">›</button>
+    </div>
+
+    <div class="section-title">Months</div>
+    <div class="month-grid" id="monthGrid"></div>
+
+    <div class="section-title">Annual temperature</div>
+    <div class="card">
+      <div class="chart-wrap"><canvas class="chart-canvas" id="tempChart" height="200"></canvas></div>
+      <div class="legend" id="tempLegend"></div>
+    </div>
+
+    <div class="section-title">Rainfall &amp; rainy days</div>
+    <div class="card">
+      <div class="chart-wrap"><canvas class="chart-canvas" id="rainChart" height="180"></canvas></div>
+      <div class="legend" id="rainLegend"></div>
+      <div class="stat-grid" style="margin-top:12px">
+        <div class="stat"><div class="stat-label">Wettest month</div><div class="stat-val" id="wettestMonth">—</div></div>
+        <div class="stat"><div class="stat-label">Driest month</div><div class="stat-val" id="driestMonth">—</div></div>
+      </div>
+      <div class="data-status" id="yearDataStatus"></div>
+    </div>
+  </section>
+
+  <!-- DAYLIGHT VIEW -->
+  <section class="view" id="view-daylight" aria-labelledby="daylight-heading">
+    <h1 class="visually-hidden" id="daylight-heading">Daylight tracker</h1>
+    <div class="card">
+      <label class="field-label" for="dateDetailInput">Pick a date for full detail</label>
+      <input type="text" id="dateDetailInput" placeholder="YYYY-MM-DD" inputmode="numeric">
+      <div class="btn-row" style="margin-top:10px">
+        <button class="btn" id="dateDetailToday">Today</button>
+        <button class="btn secondary" id="dateDetailGo">Show detail</button>
+      </div>
+    </div>
+
+    <div class="section-title">Day length across the year</div>
+    <div class="card">
+      <div class="chart-wrap"><canvas class="chart-canvas" id="daylenChart" height="180"></canvas></div>
+      <div class="legend" id="daylenLegend"></div>
+    </div>
+
+    <div class="section-title">Sunrise &amp; sunset trend</div>
+    <div class="card">
+      <div class="chart-wrap"><canvas class="chart-canvas" id="sunTrendChart" height="200"></canvas></div>
+      <div class="legend" id="sunTrendLegend"></div>
+    </div>
+
+    <div class="section-title">Monthly view</div>
+    <div class="card">
+      <select id="daylightMonthSelect" aria-label="Select month"></select>
+      <div id="daylightMonthList" style="margin-top:10px;max-height:340px;overflow-y:auto"></div>
+    </div>
+  </section>
+
+  <!-- SEASONS VIEW -->
+  <section class="view" id="view-seasons" aria-labelledby="seasons-heading">
+    <h1 class="visually-hidden" id="seasons-heading">Seasonal patterns</h1>
+    <div id="seasonsBanner"></div>
+    <div class="section-title">Estimated season timeline</div>
+    <div class="card">
+      <div class="timeline-track" id="timelineTrack"></div>
+      <div class="timeline-months" id="timelineMonths"></div>
+      <div class="season-note">Boundaries below are <b>estimated from historical climate patterns</b> at your selected location — not fixed calendar rules, and not a guarantee for any specific year.</div>
+      <div id="seasonNotes"></div>
+    </div>
+
+    <div class="section-title">Monsoon / wet-season estimate</div>
+    <div class="card">
+      <div id="monsoonSummary"></div>
+      <div class="data-status" id="seasonsDataStatus"></div>
+    </div>
+  </section>
+
+  <!-- SETTINGS VIEW -->
+  <section class="view" id="view-settings" aria-labelledby="settings-heading">
+    <h1 class="visually-hidden" id="settings-heading">Settings</h1>
+
+    <div class="section-title">Units</div>
+    <div class="card">
+      <div class="field">
+        <label class="field-label">Temperature</label>
+        <div class="seg" id="unitTempSeg">
+          <button data-val="C" aria-pressed="true">Celsius</button>
+          <button data-val="F" aria-pressed="false">Fahrenheit</button>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:0">
+        <label class="field-label">Time format</label>
+        <div class="seg" id="unitTimeSeg">
+          <button data-val="24" aria-pressed="true">24-hour</button>
+          <button data-val="12" aria-pressed="false">12-hour</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-title">Location</div>
+    <div class="card">
+      <div class="settings-row">
+        <div>
+          <div class="sr-label" id="settingsLocName">—</div>
+          <div class="sr-sub" id="settingsLocCoords">—</div>
+        </div>
+        <button class="btn secondary" id="settingsChangeLoc">Change</button>
+      </div>
+    </div>
+
+    <div class="section-title">Data</div>
+    <div class="card">
+      <div class="settings-row">
+        <div>
+          <div class="sr-label">Clear cached data</div>
+          <div class="sr-sub">Removes cached forecast &amp; climate data. Your saved location and preferences stay.</div>
+        </div>
+        <button class="btn danger" id="clearCacheBtn">Clear</button>
+      </div>
+    </div>
+
+    <div class="section-title">About the data</div>
+    <div class="card" style="font-size:13px;color:var(--ink-soft)">
+      <p style="margin-bottom:8px">Weather and rainfall come from <b>Open-Meteo</b> (forecast &amp; historical archive APIs). Sunrise, sunset, twilight and daylight duration are calculated locally from standard solar-position astronomy — not fetched from a third party.</p>
+      <p style="margin-bottom:8px">Season boundaries and the monsoon window are <b>estimates</b> derived from several years of historical data at your location. They describe typical patterns, not a guarantee for any single year.</p>
+      <p>YearScope is free, has no account, no ads, and sends only your chosen location's coordinates to Open-Meteo's public APIs to fetch weather data. Nothing else is transmitted anywhere.</p>
+    </div>
+
+    <div class="footer-note">YearScope · not affiliated with any weather agency · data via Open-Meteo (open-meteo.com)</div>
+  </section>
+
+</main>
+
+<nav class="bottom-nav" aria-label="Main navigation">
+  <button class="nav-btn active" data-view="home" aria-current="page">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>
+    Home
+  </button>
+  <button class="nav-btn" data-view="year">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    Year
+  </button>
+  <button class="nav-btn" data-view="daylight">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 18h18M6 18a6 6 0 0 1 12 0M4 14l1.5-1M20 14l-1.5-1M12 6V4"/></svg>
+    Daylight
+  </button>
+  <button class="nav-btn" data-view="seasons">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M4 8c3 0 4 2 8 2s5-2 8-2M4 16c3 0 4-2 8-2s5 2 8 2"/></svg>
+    Seasons
+  </button>
+  <button class="nav-btn" data-view="settings">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.6-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9c.2.6.7 1 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    Settings
+  </button>
+</nav>
+
+<!-- Location search modal -->
+<div class="modal-overlay hidden" id="locModal" role="dialog" aria-modal="true" aria-labelledby="locModalTitle">
+  <div class="modal-sheet">
+    <div class="modal-title-row">
+      <h2 id="locModalTitle" style="font-size:17px">Choose a location</h2>
+      <button class="close-x" id="locModalClose" aria-label="Close">✕</button>
+    </div>
+    <button class="btn geo-btn" id="useGeoBtn">📍 Use my current location</button>
+    <div class="field">
+      <input type="text" id="locSearchInput" placeholder="Search city or place…" aria-label="Search city or place">
+    </div>
+    <div id="locResults"></div>
+  </div>
+</div>
+
+<!-- Date detail modal -->
+<div class="modal-overlay hidden" id="detailModal" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+  <div class="modal-sheet">
+    <div class="modal-title-row">
+      <h2 id="detailModalTitle" style="font-size:17px">Date detail</h2>
+      <button class="close-x" id="detailModalClose" aria-label="Close">✕</button>
+    </div>
+    <div id="detailModalBody"></div>
+  </div>
+</div>
+
+<!-- Month detail modal -->
+<div class="modal-overlay hidden" id="monthModal" role="dialog" aria-modal="true" aria-labelledby="monthModalTitle">
+  <div class="modal-sheet">
+    <div class="modal-title-row">
+      <h2 id="monthModalTitle" style="font-size:17px">Month detail</h2>
+      <button class="close-x" id="monthModalClose" aria-label="Close">✕</button>
+    </div>
+    <div id="monthModalBody"></div>
+  </div>
+</div>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+"use strict";
+/* =========================================================================
+   YearScope — vanilla JS, no build step, no frameworks.
+   Structure: CONST/UTIL -> STORAGE -> SOLAR ENGINE -> API -> CLIMATE ENGINE
+   -> CHARTS -> RENDER (per view) -> EVENTS -> INIT
+   ========================================================================= */
+
+/* ---------------------------- Constants ---------------------------- */
+const GEOCODE_URL = "https://geocoding-api.open-meteo.com/v1/search";
+const FORECAST_URL = "https://api.open-meteo.com/v1/forecast";
+const ARCHIVE_URL = "https://archive-api.open-meteo.com/v1/archive";
+const REVERSE_GEOCODE_URL = "https://api.bigdatacloud.net/data/reverse-geocode-client";
+
+const FORECAST_TTL_MS = 60 * 60 * 1000;       // 1 hour
+const CLIMATE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const CLIMATE_YEARS_BACK = 10;                // years of history used for normals
+
+const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+
+const WEATHER_CODES = {
+  0:"Clear sky",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",
+  45:"Fog",48:"Depositing rime fog",
+  51:"Light drizzle",53:"Moderate drizzle",55:"Dense drizzle",
+  56:"Light freezing drizzle",57:"Dense freezing drizzle",
+  61:"Slight rain",63:"Moderate rain",65:"Heavy rain",
+  66:"Light freezing rain",67:"Heavy freezing rain",
+  71:"Slight snow",73:"Moderate snow",75:"Heavy snow",77:"Snow grains",
+  80:"Slight rain showers",81:"Moderate rain showers",82:"Violent rain showers",
+  85:"Slight snow showers",86:"Heavy snow showers",
+  95:"Thunderstorm",96:"Thunderstorm, slight hail",99:"Thunderstorm, heavy hail"
+};
+
+/* ---------------------------- Small utils ---------------------------- */
+const $ = (sel, root) => (root || document).querySelector(sel);
+const $all = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+const round1 = n => (n === null || n === undefined || isNaN(n)) ? null : Math.round(n * 10) / 10;
+const pad2 = n => String(n).padStart(2, "0");
+const isLeap = y => (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+const daysInMonth = (y, m) => new Date(y, m + 1, 0).getDate(); // m is 0-based
+const ymd = (y, m, d) => `${y}-${pad2(m + 1)}-${pad2(d)}`;
+const toRad = d => d * Math.PI / 180;
+const toDeg = r => r * 180 / Math.PI;
+
+function fmtTemp(celsius) {
+  if (celsius === null || celsius === undefined || isNaN(celsius)) return "—";
+  const v = STATE.settings.tempUnit === "F" ? celsius * 9 / 5 + 32 : celsius;
+  return `${Math.round(v)}°${STATE.settings.tempUnit}`;
+}
+function fmtTempPrecise(celsius) {
+  if (celsius === null || celsius === undefined || isNaN(celsius)) return "—";
+  const v = STATE.settings.tempUnit === "F" ? celsius * 9 / 5 + 32 : celsius;
+  return `${round1(v)}°${STATE.settings.tempUnit}`;
+}
+function fmtMinutesAsClock(mins, tz) {
+  // mins: minutes-of-day in UTC (can be negative or >1440, handled by wrapping via Date), tz: IANA string
+  if (mins === null || mins === undefined || isNaN(mins)) return "—";
+  const base = Date.UTC(2000, 0, 1, 0, 0, 0);
+  const d = new Date(base + mins * 60000);
+  try {
+    return new Intl.DateTimeFormat("en-US", {
+      hour: "numeric", minute: "2-digit",
+      hour12: STATE.settings.timeFormat === "12",
+      timeZone: tz || "UTC"
+    }).format(d);
+  } catch (e) {
+    return "—";
+  }
+}
+function fmtDuration(mins) {
+  if (mins === null || mins === undefined || isNaN(mins)) return "—";
+  const h = Math.floor(mins / 60), m = Math.round(mins % 60);
+  return `${h}h ${pad2(m)}m`;
+}
+function fmtDateHuman(y, m, d) {
+  return `${MONTH_NAMES[m]} ${d}, ${y}`;
+}
+function showToast(msg, ms) {
+  const t = $("#toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove("show"), ms || 2600);
+}
+function bannerHtml(kind, text) {
+  return `<div class="banner ${kind}"><span>${kind === "error" ? "⚠" : kind === "warn" ? "⚠" : "ℹ"}</span><p>${text}</p></div>`;
+}
+
+/* ---------------------------- Persistent storage ---------------------------- */
+const LS_KEYS = {
+  location: "yearscope.location",
+  settings: "yearscope.settings",
+  climatePrefix: "yearscope.climate.",
+  forecastPrefix: "yearscope.forecast."
+};
+function lsGet(key) {
+  try { const v = localStorage.getItem(key); return v ? JSON.parse(v) : null; }
+  catch (e) { return null; }
+}
+function lsSet(key, val) {
+  try { localStorage.setItem(key, JSON.stringify(val)); return true; }
+  catch (e) { return false; }
+}
+function locCacheKey(loc, prefix) {
+  const la = loc.lat.toFixed(2), lo = loc.lon.toFixed(2);
+  return `${prefix}${la}_${lo}`;
+}
+
+const DEFAULT_LOCATION = {
+  name: "Rajshahi", admin1: "Rajshahi Division", country: "Bangladesh",
+  lat: 24.3745, lon: 88.6042, timezone: "Asia/Dhaka"
+};
+const DEFAULT_SETTINGS = { tempUnit: "C", timeFormat: "24" };
+
+const STATE = {
+  location: lsGet(LS_KEYS.location) || DEFAULT_LOCATION,
+  settings: Object.assign({}, DEFAULT_SETTINGS, lsGet(LS_KEYS.settings) || {}),
+  view: "home",
+  selectedYear: new Date().getFullYear(),
+  climate: null,       // aggregated climate-normal object for current location
+  climateMeta: null,   // { fetchedAt, cached, years:[...] }
+  forecast: null,      // forecast API response subset
+  forecastMeta: null,  // { fetchedAt, cached }
+  yearActual: {},      // { [year]: { monthly:[...], fetchedAt, isComplete } } actual observed data per requested year
+  daylightMonth: new Date().getMonth()
+};
+
+function saveLocation() { lsSet(LS_KEYS.location, STATE.location); }
+function saveSettings() { lsSet(LS_KEYS.settings, STATE.settings); }
+
+/* =========================================================================
+   SOLAR ENGINE — computes sunrise/sunset/twilight from lat/lon/date only.
+   Based on the standard NOAA solar position equations (public-domain
+   astronomical algorithm; same formulas used in NOAA's Solar Calculator).
+   All angles in degrees unless noted. Returns UTC minutes-of-day.
+   ========================================================================= */
+function julianDayFromCivilNoonUTC(y, m, d) {
+  // Julian Day Number for the given calendar date at 12:00 UTC (m is 0-based)
+  const date = new Date(Date.UTC(y, m, d, 12, 0, 0));
+  return date.getTime() / 86400000 + 2440587.5;
+}
+function solarGeometry(jd) {
+  const T = (jd - 2451545.0) / 36525.0;
+  const L0raw = 280.46646 + T * (36000.76983 + T * 0.0003032);
+  const L0 = ((L0raw % 360) + 360) % 360;
+  const M = 357.52911 + T * (35999.05029 - 0.0001537 * T);
+  const Mrad = toRad(M);
+  const e = 0.016708634 - T * (0.000042037 + 0.0000001267 * T);
+  const C = Math.sin(Mrad) * (1.914602 - T * (0.004817 + 0.000014 * T))
+          + Math.sin(2 * Mrad) * (0.019993 - 0.000101 * T)
+          + Math.sin(3 * Mrad) * 0.000289;
+  const trueLong = L0 + C;
+  const omega = 125.04 - 1934.136 * T;
+  const appLong = trueLong - 0.00569 - 0.00478 * Math.sin(toRad(omega));
+  const meanObliq = 23 + (26 + ((21.448 - T * (46.815 + T * (0.00059 - T * 0.001813)))) / 60) / 60;
+  const obliqCorr = meanObliq + 0.00256 * Math.cos(toRad(omega));
+  const declRad = Math.asin(Math.sin(toRad(obliqCorr)) * Math.sin(toRad(appLong)));
+  const y2 = Math.pow(Math.tan(toRad(obliqCorr) / 2), 2);
+  const eqTime = 4 * toDeg(
+    y2 * Math.sin(2 * toRad(L0))
+    - 2 * e * Math.sin(Mrad)
+    + 4 * e * y2 * Math.sin(Mrad) * Math.cos(2 * toRad(L0))
+    - 0.5 * y2 * y2 * Math.sin(4 * toRad(L0))
+    - 1.25 * e * e * Math.sin(2 * Mrad)
+  );
+  return { declRad, eqTime }; // eqTime in minutes
+}
+function hourAngleForZenith(latRad, declRad, zenithDeg) {
+  const zr = toRad(zenithDeg);
+  const cosH = (Math.cos(zr) - Math.sin(latRad) * Math.sin(declRad)) / (Math.cos(latRad) * Math.cos(declRad));
+  if (cosH > 1) return null;  // sun never reaches this angle (e.g. polar night / never rises to this depth)
+  if (cosH < -1) return null; // sun never goes below this angle (e.g. polar day)
+  return toDeg(Math.acos(cosH));
+}
+/**
+ * Compute all sun/twilight events for a given calendar date at (lat, lon).
+ * Returns UTC minutes-of-day for each event (can be used with fmtMinutesAsClock + tz),
+ * plus dayLengthMin. Any event that cannot occur (polar day/night) is null.
+ */
+function computeSunTimes(y, m, d, lat, lon) {
+  const jd = julianDayFromCivilNoonUTC(y, m, d);
+  const { declRad, eqTime } = solarGeometry(jd);
+  const latRad = toRad(lat);
+  const solarNoonUTC = 720 - 4 * lon - eqTime; // minutes
+
+  const zenith = { sunriseSunset: 90.833, civil: 96, nautical: 102, astronomical: 108 };
+  function pair(zenithDeg) {
+    const ha = hourAngleForZenith(latRad, declRad, zenithDeg);
+    if (ha === null) return [null, null];
+    return [solarNoonUTC - 4 * ha, solarNoonUTC + 4 * ha];
+  }
+  const [sunrise, sunset] = pair(zenith.sunriseSunset);
+  const [civilDawn, civilDusk] = pair(zenith.civil);
+  const [nauticalDawn, nauticalDusk] = pair(zenith.nautical);
+  const [astroDawn, astroDusk] = pair(zenith.astronomical);
+
+  let dayLengthMin = null;
+  if (sunrise !== null && sunset !== null) dayLengthMin = sunset - sunrise;
+  else {
+    // Determine polar day vs polar night by sign of cos(zenith) test at solar noon
+    const noonAltitudeSin = Math.sin(latRad) * Math.sin(declRad) + Math.cos(latRad) * Math.cos(declRad);
+    dayLengthMin = noonAltitudeSin > Math.cos(toRad(90.833)) ? 1440 : 0;
+  }
+
+  return {
+    astronomicalDawn: astroDawn, nauticalDawn, civilDawn, sunrise,
+    solarNoon: solarNoonUTC, sunset, civilDusk, nauticalDusk, astronomicalDusk: astroDusk,
+    dayLengthMin, polar: sunrise === null
+  };
+}
+
+/* =========================================================================
+   API layer
+   ========================================================================= */
+async function apiGeocode(query) {
+  const url = `${GEOCODE_URL}?name=${encodeURIComponent(query)}&count=8&language=en&format=json`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Geocoding service unavailable");
+  const data = await res.json();
+  return (data.results || []).map(r => ({
+    name: r.name, admin1: r.admin1 || "", country: r.country || "",
+    lat: r.latitude, lon: r.longitude, timezone: r.timezone || "UTC"
+  }));
+}
+async function apiReverseGeocode(lat, lon) {
+  try {
+    const res = await fetch(`${REVERSE_GEOCODE_URL}?latitude=${lat}&longitude=${lon}&localityLanguage=en`);
+    if (!res.ok) throw new Error("reverse geocode failed");
+    const d = await res.json();
+    return {
+      name: d.city || d.locality || d.principalSubdivision || "My location",
+      admin1: d.principalSubdivision || "", country: d.countryName || ""
+    };
+  } catch (e) {
+    return { name: "My location", admin1: "", country: "" };
+  }
+}
+async function apiGetTimezoneFor(lat, lon) {
+  // Open-Meteo forecast endpoint returns resolved IANA timezone when timezone=auto is passed
+  try {
+    const res = await fetch(`${FORECAST_URL}?latitude=${lat}&longitude=${lon}&timezone=auto&daily=weathercode&forecast_days=1`);
+    if (!res.ok) return "UTC";
+    const d = await res.json();
+    return d.timezone || "UTC";
+  } catch (e) { return "UTC"; }
+}
+async function apiForecast(loc) {
+  const url = `${FORECAST_URL}?latitude=${loc.lat}&longitude=${loc.lon}&timezone=auto`
+    + `&current=temperature_2m,precipitation,weathercode,is_day`
+    + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,precipitation_probability_max,weathercode`
+    + `&forecast_days=16`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Forecast service unavailable");
+  return res.json();
+}
+async function apiArchive(loc, startDate, endDate) {
+  const url = `${ARCHIVE_URL}?latitude=${loc.lat}&longitude=${loc.lon}&timezone=UTC`
+    + `&start_date=${startDate}&end_date=${endDate}`
+    + `&daily=temperature_2m_max,temperature_2m_min,precipitation_sum`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error("Historical archive service unavailable");
+  return res.json();
+}
+
+/* =========================================================================
+   Forecast fetch with cache
+   ========================================================================= */
+async function loadForecast(force) {
+  const key = locCacheKey(STATE.location, LS_KEYS.forecastPrefix);
+  if (!force) {
+    const cached = lsGet(key);
+    if (cached && (Date.now() - cached.fetchedAt) < FORECAST_TTL_MS) {
+      STATE.forecast = cached.data;
+      STATE.forecastMeta = { fetchedAt: cached.fetchedAt, cached: true };
+      return { ok: true, cached: true };
+    }
+  }
+  try {
+    const data = await apiForecast(STATE.location);
+    STATE.forecast = data;
+    STATE.forecastMeta = { fetchedAt: Date.now(), cached: false };
+    lsSet(key, { fetchedAt: STATE.forecastMeta.fetchedAt, data });
+    return { ok: true, cached: false };
+  } catch (e) {
+    const cached = lsGet(key);
+    if (cached) {
+      STATE.forecast = cached.data;
+      STATE.forecastMeta = { fetchedAt: cached.fetchedAt, cached: true, stale: true };
+      return { ok: true, cached: true, stale: true, error: e.message };
+    }
+    STATE.forecast = null;
+    STATE.forecastMeta = null;
+    return { ok: false, error: e.message };
+  }
+}
+
+/* =========================================================================
+   CLIMATE ENGINE — fetch N years of daily history, aggregate into:
+   - monthly[12]: {avgHigh, avgLow, avgMean, avgPrecipTotal, avgRainyDays}
+   - doy[366]: {mean, high, low, precip} averaged across years for that
+     month-day (used for season-transition detection)
+   ========================================================================= */
+function aggregateArchive(daily) {
+  // daily: {time:[...], temperature_2m_max:[...], temperature_2m_min:[...], precipitation_sum:[...]}
+  const monthlyAcc = Array.from({ length: 12 }, () => ({ hiSum: 0, loSum: 0, meanSum: 0, precipSum: 0, rainyDays: 0, days: 0, years: new Set() }));
+  const doyAcc = {}; // key "MM-DD" -> {hiSum,loSum,meanSum,precipSum,n}
+  const times = daily.time || [];
+  for (let i = 0; i < times.length; i++) {
+    const hi = daily.temperature_2m_max[i], lo = daily.temperature_2m_min[i], pr = daily.precipitation_sum[i];
+    if (hi === null || lo === null) continue;
+    const [yy, mm, dd] = times[i].split("-").map(Number);
+    const mIdx = mm - 1;
+    const mean = (hi + lo) / 2;
+    const acc = monthlyAcc[mIdx];
+    acc.hiSum += hi; acc.loSum += lo; acc.meanSum += mean;
+    acc.precipSum += (pr || 0);
+    if ((pr || 0) >= 1) acc.rainyDays += 1;
+    acc.days += 1;
+    acc.years.add(yy);
+    const key = `${pad2(mm)}-${pad2(dd)}`;
+    if (!doyAcc[key]) doyAcc[key] = { hiSum: 0, loSum: 0, meanSum: 0, precipSum: 0, n: 0 };
+    doyAcc[key].hiSum += hi; doyAcc[key].loSum += lo; doyAcc[key].meanSum += mean; doyAcc[key].precipSum += (pr || 0); doyAcc[key].n += 1;
+  }
+  const monthly = monthlyAcc.map((acc, idx) => {
+    const nYears = acc.years.size || 1;
+    const daysPerYearApprox = acc.days / nYears;
+    return {
+      month: idx,
+      avgHigh: acc.days ? acc.hiSum / acc.days : null,
+      avgLow: acc.days ? acc.loSum / acc.days : null,
+      avgMean: acc.days ? acc.meanSum / acc.days : null,
+      avgPrecipTotal: nYears ? acc.precipSum / nYears : null,
+      avgRainyDays: nYears ? acc.rainyDays / nYears : null,
+      daysPerYearApprox
+    };
+  });
+  const doy = {}; // "MM-DD" -> {mean,high,low,precip}
+  Object.keys(doyAcc).forEach(key => {
+    const a = doyAcc[key];
+    doy[key] = { mean: a.meanSum / a.n, high: a.hiSum / a.n, low: a.loSum / a.n, precip: a.precipSum / a.n };
+  });
+  return { monthly, doy };
+}
+
+async function loadClimate(force) {
+  const key = locCacheKey(STATE.location, LS_KEYS.climatePrefix);
+  if (!force) {
+    const cached = lsGet(key);
+    if (cached && (Date.now() - cached.fetchedAt) < CLIMATE_TTL_MS) {
+      STATE.climate = cached.data;
+      STATE.climateMeta = { fetchedAt: cached.fetchedAt, cached: true, years: cached.years };
+      return { ok: true, cached: true };
+    }
+  }
+  const today = new Date();
+  const lastFullYear = today.getFullYear() - 1;
+  const firstYear = lastFullYear - (CLIMATE_YEARS_BACK - 1);
+  const startDate = `${firstYear}-01-01`;
+  const endDate = `${lastFullYear}-12-31`;
+  try {
+    const data = await apiArchive(STATE.location, startDate, endDate);
+    const agg = aggregateArchive(data.daily || {});
+    STATE.climate = agg;
+    STATE.climateMeta = { fetchedAt: Date.now(), cached: false, years: [firstYear, lastFullYear] };
+    lsSet(key, { fetchedAt: STATE.climateMeta.fetchedAt, data: agg, years: [firstYear, lastFullYear] });
+    return { ok: true, cached: false };
+  } catch (e) {
+    const cached = lsGet(key);
+    if (cached) {
+      STATE.climate = cached.data;
+      STATE.climateMeta = { fetchedAt: cached.fetchedAt, cached: true, stale: true, years: cached.years };
+      return { ok: true, cached: true, stale: true, error: e.message };
+    }
+    STATE.climate = null;
+    STATE.climateMeta = null;
+    return { ok: false, error: e.message };
+  }
+}
+
+/* Actual observed data for a specific requested year (Year view), separate
+   from the multi-year climate normal above. Only fetched for years that have
+   at least started (current or past years); future years use climate normal only. */
+async function loadActualYear(year) {
+  const cacheKeyStr = `${LS_KEYS.climatePrefix}actualyear.${locCacheKey(STATE.location,'')}${year}`;
+  const now = new Date();
+  const isCurrentYear = year === now.getFullYear();
+  const isPastYear = year < now.getFullYear();
+  if (!isCurrentYear && !isPastYear) return { ok: false, skipped: true }; // future year
+
+  const cached = lsGet(cacheKeyStr);
+  const ttl = isPastYear ? CLIMATE_TTL_MS : FORECAST_TTL_MS; // past years are final, cache long; current year still filling in
+  if (cached && (Date.now() - cached.fetchedAt) < ttl) {
+    STATE.yearActual[year] = cached.data;
+    return { ok: true, cached: true };
+  }
+  const startDate = `${year}-01-01`;
+  // archive API only has data up to ~2 days ago; cap end date accordingly
+  const twoDaysAgo = new Date(now); twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  let endDate;
+  if (isPastYear) endDate = `${year}-12-31`;
+  else endDate = twoDaysAgo.toISOString().slice(0, 10);
+
+  if (isCurrentYear && twoDaysAgo.getFullYear() < year) {
+    // no data available yet this year (e.g. Jan 1st)
+    STATE.yearActual[year] = { monthly: null, isComplete: false, noDataYet: true };
+    return { ok: true, cached: false };
+  }
+  try {
+    const data = await apiArchive(STATE.location, startDate, endDate);
+    const agg = aggregateArchive(data.daily || {});
+    const result = { monthly: agg.monthly, isComplete: isPastYear, lastDate: endDate };
+    STATE.yearActual[year] = result;
+    lsSet(cacheKeyStr, { fetchedAt: Date.now(), data: result });
+    return { ok: true, cached: false };
+  } catch (e) {
+    if (cached) { STATE.yearActual[year] = cached.data; return { ok: true, cached: true, stale: true }; }
+    return { ok: false, error: e.message };
+  }
+}
+
+/* =========================================================================
+   SEASON DETECTION — rolling-average analysis over the day-of-year climate
+   normal (doy). Purely derived from data; no hard-coded calendar dates.
+   ========================================================================= */
+function buildDoySeries(climate) {
+  // Build an ordered 366-length array (Jan1..Dec31, Feb29 filled from neighbor if absent)
+  const year = 2001; // any non-leap reference for iteration order; we still use MM-DD keys
+  const order = [];
+  for (let m = 0; m < 12; m++) {
+    const dim = m === 1 ? 29 : daysInMonth(2000, m); // include Feb29 slot
+    for (let d = 1; d <= dim; d++) order.push(`${pad2(m + 1)}-${pad2(d)}`);
+  }
+  const series = order.map(key => {
+    let v = climate.doy[key];
+    if (!v && key === "02-29") v = climate.doy["02-28"]; // fallback if no leap years in range
+    return v || { mean: null, high: null, low: null, precip: null };
+  });
+  return { keys: order, series };
+}
+function rollingAverage(values, windowSize) {
+  const n = values.length;
+  const half = Math.floor(windowSize / 2);
+  const out = new Array(n).fill(null);
+  for (let i = 0; i < n; i++) {
+    let sum = 0, cnt = 0;
+    for (let off = -half; off <= half; off++) {
+      const idx = (i + off + n) % n; // circular (wrap Dec->Jan)
+      const v = values[idx];
+      if (v !== null && v !== undefined && !isNaN(v)) { sum += v; cnt++; }
+    }
+    out[i] = cnt ? sum / cnt : null;
+  }
+  return out;
+}
+function detectSeasons(climate) {
+  const { keys, series } = buildDoySeries(climate);
+  const meanTemp = series.map(s => s.mean);
+  const precip = series.map(s => s.precip);
+  const rollTemp = rollingAverage(meanTemp, 15);
+  const rollPrecip = rollingAverage(precip, 15);
+
+  const validTemps = rollTemp.filter(v => v !== null);
+  const validPrecip = rollPrecip.filter(v => v !== null);
+  if (!validTemps.length) return null;
+
+  const annualMeanTemp = validTemps.reduce((a, b) => a + b, 0) / validTemps.length;
+  const tempRange = Math.max(...validTemps) - Math.min(...validTemps);
+  const annualMeanPrecip = validPrecip.length ? validPrecip.reduce((a, b) => a + b, 0) / validPrecip.length : 0;
+  const precipRange = validPrecip.length ? Math.max(...validPrecip) - Math.min(...validPrecip) : 0;
+
+  const wetThreshold = annualMeanPrecip + precipRange * 0.15;
+
+  function findTransitions(arr, threshold, direction) {
+    // returns indices where arr crosses threshold in given direction ('up'/'down'), sustained for >=10 days after
+    const hits = [];
+    const n = arr.length;
+    for (let i = 0; i < n; i++) {
+      const cur = arr[i], prev = arr[(i - 1 + n) % n];
+      if (cur === null || prev === null) continue;
+      const crossedUp = prev < threshold && cur >= threshold;
+      const crossedDown = prev >= threshold && cur < threshold;
+      if ((direction === "up" && crossedUp) || (direction === "down" && crossedDown)) {
+        // check sustained for next 10 days
+        let sustained = true;
+        for (let k = 1; k <= 10; k++) {
+          const v = arr[(i + k) % n];
+          if (v === null) continue;
+          if (direction === "up" && v < threshold) { sustained = false; break; }
+          if (direction === "down" && v >= threshold) { sustained = false; break; }
+        }
+        if (sustained) hits.push(i);
+      }
+    }
+    return hits;
+  }
+
+  const warmingStarts = findTransitions(rollTemp, (annualMeanTemp), "up");
+  const coolingStarts = findTransitions(rollTemp, (annualMeanTemp), "down");
+  const wetStarts = precipRange > 5 ? findTransitions(rollPrecip, wetThreshold, "up") : [];
+  const wetEnds = precipRange > 5 ? findTransitions(rollPrecip, wetThreshold, "down") : [];
+
+  function idxToLabel(i) {
+    const key = keys[i]; // MM-DD
+    const [mm, dd] = key.split("-").map(Number);
+    const part = dd <= 10 ? "early" : dd <= 20 ? "mid" : "late";
+    return `${part} ${MONTH_NAMES[mm - 1]}`;
+  }
+  function pickFirst(arr) { return arr.length ? arr[0] : null; }
+  function pickNextAfter(startIdx, candidates, n) {
+    // circular: pick the candidate with the smallest forward distance from startIdx
+    if (!candidates.length) return null;
+    if (startIdx === null) return candidates[0];
+    let best = null, bestDist = Infinity;
+    candidates.forEach(c => {
+      const dist = ((c - startIdx) + n) % n;
+      if (dist > 0 && dist < bestDist) { best = c; bestDist = dist; }
+    });
+    return best !== null ? best : candidates[0];
+  }
+
+  const wetStartIdx = pickFirst(wetStarts);
+  const wetEndIdx = pickNextAfter(wetStartIdx, wetEnds, keys.length);
+
+  return {
+    keys, rollTemp, rollPrecip, annualMeanTemp, annualMeanPrecip, tempRange, precipRange,
+    warmingIdx: pickFirst(warmingStarts), coolingIdx: pickFirst(coolingStarts),
+    wetStartIdx, wetEndIdx,
+    idxToLabel
+  };
+}
+
+/* =========================================================================
+   CHARTS — lightweight canvas line/bar charts, no external library.
+   ========================================================================= */
+function setupCanvasHiDPI(canvas, cssWidth, cssHeight) {
+  const dpr = window.devicePixelRatio || 1;
+  canvas.style.width = cssWidth + "px";
+  canvas.style.height = cssHeight + "px";
+  canvas.width = Math.round(cssWidth * dpr);
+  canvas.height = Math.round(cssHeight * dpr);
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return ctx;
+}
+function drawAxes(ctx, w, h, pad, yMin, yMax, yFmt) {
+  ctx.strokeStyle = "#DEE4E1"; ctx.fillStyle = "#7C8B92";
+  ctx.font = "10px -apple-system,sans-serif"; ctx.lineWidth = 1;
+  const gridLines = 4;
+  for (let i = 0; i <= gridLines; i++) {
+    const y = pad.top + (h - pad.top - pad.bottom) * (1 - i / gridLines);
+    const val = yMin + (yMax - yMin) * (i / gridLines);
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(w - pad.right, y); ctx.stroke();
+    ctx.fillText(yFmt(val), 2, y + 3);
+  }
+}
+function drawLineSeries(ctx, points, xForI, pad, h, yMin, yMax, color, width, dashed) {
+  ctx.strokeStyle = color; ctx.lineWidth = width || 2;
+  ctx.setLineDash(dashed ? [5, 4] : []);
+  ctx.beginPath();
+  let started = false;
+  points.forEach((v, i) => {
+    if (v === null || v === undefined || isNaN(v)) { started = false; return; }
+    const x = xForI(i);
+    const y = pad.top + (h - pad.top - pad.bottom) * (1 - (v - yMin) / (yMax - yMin || 1));
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+  });
+  ctx.stroke();
+  ctx.setLineDash([]);
+}
+function drawBars(ctx, values, xForI, barWidth, pad, h, yMin, yMax, color) {
+  ctx.fillStyle = color;
+  values.forEach((v, i) => {
+    if (v === null || v === undefined || isNaN(v)) return;
+    const x = xForI(i) - barWidth / 2;
+    const y = pad.top + (h - pad.top - pad.bottom) * (1 - (v - yMin) / (yMax - yMin || 1));
+    const yZero = pad.top + (h - pad.top - pad.bottom) * (1 - (0 - yMin) / (yMax - yMin || 1));
+    ctx.fillRect(x, Math.min(y, yZero), barWidth, Math.abs(yZero - y));
+  });
+}
+
+function renderTempChart(monthlyClimate, actualMonthly) {
+  const canvas = $("#tempChart");
+  const cssW = Math.max(canvas.parentElement.clientWidth, 320), cssH = 200;
+  const ctx = setupCanvasHiDPI(canvas, cssW, cssH);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const pad = { left: 30, right: 10, top: 10, bottom: 20 };
+  const highs = monthlyClimate.map(m => m.avgHigh !== null ? (STATE.settings.tempUnit === "F" ? m.avgHigh * 9 / 5 + 32 : m.avgHigh) : null);
+  const lows = monthlyClimate.map(m => m.avgLow !== null ? (STATE.settings.tempUnit === "F" ? m.avgLow * 9 / 5 + 32 : m.avgLow) : null);
+  const means = monthlyClimate.map(m => m.avgMean !== null ? (STATE.settings.tempUnit === "F" ? m.avgMean * 9 / 5 + 32 : m.avgMean) : null);
+  const actualMeans = actualMonthly ? actualMonthly.map(m => m && m.avgMean !== null && m.avgMean !== undefined ? (STATE.settings.tempUnit === "F" ? m.avgMean * 9 / 5 + 32 : m.avgMean) : null) : null;
+
+  const allVals = highs.concat(lows).concat(actualMeans || []).filter(v => v !== null);
+  const yMin = Math.floor(Math.min(...allVals) - 2), yMax = Math.ceil(Math.max(...allVals) + 2);
+  const xForI = i => pad.left + (cssW - pad.left - pad.right) * (i / 11);
+
+  drawAxes(ctx, cssW, cssH, pad, yMin, yMax, v => Math.round(v) + "°");
+  drawLineSeries(ctx, highs, xForI, pad, cssH, yMin, yMax, "#DB9A34", 2);
+  drawLineSeries(ctx, lows, xForI, pad, cssH, yMin, yMax, "#2F6690", 2);
+  drawLineSeries(ctx, means, xForI, pad, cssH, yMin, yMax, "#7C8B92", 1.5, true);
+  if (actualMeans) drawLineSeries(ctx, actualMeans, xForI, pad, cssH, yMin, yMax, "#2C7A5C", 2.5);
+
+  ctx.fillStyle = "#4B5C64"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "center";
+  MONTH_SHORT.forEach((mn, i) => ctx.fillText(mn, xForI(i), cssH - 4));
+  ctx.textAlign = "left";
+
+  const legend = $("#tempLegend");
+  legend.innerHTML = `
+    <span class="legend-item"><span class="legend-swatch" style="background:#DB9A34"></span>Historical avg high</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:#2F6690"></span>Historical avg low</span>
+    ${actualMonthly ? `<span class="legend-item"><span class="legend-swatch" style="background:#2C7A5C"></span>Actual ${STATE.selectedYear}</span>` : ""}
+  `;
+}
+function renderRainChart(monthlyClimate) {
+  const canvas = $("#rainChart");
+  const cssW = Math.max(canvas.parentElement.clientWidth, 320), cssH = 180;
+  const ctx = setupCanvasHiDPI(canvas, cssW, cssH);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const pad = { left: 34, right: 10, top: 10, bottom: 20 };
+  const precip = monthlyClimate.map(m => m.avgPrecipTotal);
+  const validVals = precip.filter(v => v !== null);
+  const yMax = Math.ceil((Math.max(...validVals, 1)) * 1.15);
+  const xForI = i => pad.left + (cssW - pad.left - pad.right) * (i / 11);
+  drawAxes(ctx, cssW, cssH, pad, 0, yMax, v => Math.round(v) + "mm");
+  drawBars(ctx, precip, xForI, Math.max(10, (cssW - pad.left - pad.right) / 16), pad, cssH, 0, yMax, "#2F6690");
+  ctx.fillStyle = "#4B5C64"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "center";
+  MONTH_SHORT.forEach((mn, i) => ctx.fillText(mn, xForI(i), cssH - 4));
+  ctx.textAlign = "left";
+  $("#rainLegend").innerHTML = `<span class="legend-item"><span class="legend-swatch" style="background:#2F6690"></span>Avg. monthly rainfall (mm)</span>`;
+}
+function renderDaylenChart(climate, lat, lon) {
+  const canvas = $("#daylenChart");
+  const cssW = Math.max(canvas.parentElement.clientWidth, 320), cssH = 180;
+  const ctx = setupCanvasHiDPI(canvas, cssW, cssH);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const pad = { left: 36, right: 10, top: 10, bottom: 20 };
+  const year = 2001;
+  const points = [];
+  for (let m = 0; m < 12; m++) {
+    for (let d = 1; d <= daysInMonth(year, m); d += 3) {
+      const st = computeSunTimes(year, m, d, lat, lon);
+      points.push(st.dayLengthMin !== null ? st.dayLengthMin / 60 : null);
+    }
+  }
+  const valid = points.filter(v => v !== null);
+  const yMin = Math.floor(Math.min(...valid) - 0.5), yMax = Math.ceil(Math.max(...valid) + 0.5);
+  const xForI = i => pad.left + (cssW - pad.left - pad.right) * (i / (points.length - 1));
+  drawAxes(ctx, cssW, cssH, pad, yMin, yMax, v => v.toFixed(0) + "h");
+  drawLineSeries(ctx, points, xForI, pad, cssH, yMin, yMax, "#DB9A34", 2.5);
+  ctx.fillStyle = "#4B5C64"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "center";
+  for (let i = 0; i < 12; i++) ctx.fillText(MONTH_SHORT[i], pad.left + (cssW - pad.left - pad.right) * (i / 11), cssH - 4);
+  ctx.textAlign = "left";
+  $("#daylenLegend").innerHTML = `<span class="legend-item"><span class="legend-swatch" style="background:#DB9A34"></span>Daylight duration (hours)</span>`;
+}
+function renderSunTrendChart(lat, lon, tz) {
+  const canvas = $("#sunTrendChart");
+  const cssW = Math.max(canvas.parentElement.clientWidth, 320), cssH = 200;
+  const ctx = setupCanvasHiDPI(canvas, cssW, cssH);
+  ctx.clearRect(0, 0, cssW, cssH);
+  const pad = { left: 34, right: 10, top: 10, bottom: 20 };
+  const year = 2001;
+  const sunrises = [], sunsets = [];
+  for (let m = 0; m < 12; m++) {
+    for (let d = 1; d <= daysInMonth(year, m); d += 3) {
+      const st = computeSunTimes(year, m, d, lat, lon);
+      sunrises.push(st.sunrise !== null ? (st.sunrise / 60) : null);
+      sunsets.push(st.sunset !== null ? (st.sunset / 60) : null);
+    }
+  }
+  const allVals = sunrises.concat(sunsets).filter(v => v !== null);
+  const yMin = Math.floor(Math.min(...allVals) - 1), yMax = Math.ceil(Math.max(...allVals) + 1);
+  const xForI = i => pad.left + (cssW - pad.left - pad.right) * (i / (sunrises.length - 1));
+  drawAxes(ctx, cssW, cssH, pad, yMin, yMax, v => fmtMinutesAsClock(((v % 24) + 24) % 24 * 60, "UTC"));
+  drawLineSeries(ctx, sunrises, xForI, pad, cssH, yMin, yMax, "#DB9A34", 2);
+  drawLineSeries(ctx, sunsets, xForI, pad, cssH, yMin, yMax, "#6B4E8E", 2);
+  ctx.fillStyle = "#4B5C64"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "center";
+  for (let i = 0; i < 12; i++) ctx.fillText(MONTH_SHORT[i], pad.left + (cssW - pad.left - pad.right) * (i / 11), cssH - 4);
+  ctx.textAlign = "left";
+  $("#sunTrendLegend").innerHTML = `
+    <span class="legend-item"><span class="legend-swatch" style="background:#DB9A34"></span>Sunrise (UTC hour shown)</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:#6B4E8E"></span>Sunset (UTC hour shown)</span>`;
+}
+function drawSunArc(nowFrac, isDaytime) {
+  const svg = $("#sunArc");
+  const w = 300, h = 110, cx = 150, cy = 95, r = 80;
+  const startAngle = Math.PI, endAngle = 0; // left to right over top half
+  const t = clamp(nowFrac, 0, 1);
+  const angle = startAngle + (endAngle - startAngle) * t;
+  const sunX = cx + r * Math.cos(angle), sunY = cy - r * Math.sin(angle) * (isDaytime ? 1 : 0.35);
+  const arcPath = `M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}`;
+  svg.innerHTML = `
+    <path d="${arcPath}" stroke="rgba(255,255,255,.35)" stroke-width="2" fill="none" stroke-dasharray="4 5"/>
+    <line x1="${cx - r}" y1="${cy}" x2="${cx + r}" y2="${cy}" stroke="rgba(255,255,255,.25)" stroke-width="1.5"/>
+    <circle cx="${sunX}" cy="${sunY}" r="9" fill="${isDaytime ? '#E8A33D' : '#C9D3D8'}"/>
+    <circle cx="${sunX}" cy="${sunY}" r="14" fill="${isDaytime ? '#E8A33D' : '#C9D3D8'}" opacity="0.25"/>
+  `;
+}
+
+/* =========================================================================
+   RENDER — Home / Today view
+   ========================================================================= */
+function currentSunTimesToday() {
+  const now = new Date();
+  const loc = STATE.location;
+  // Use the location's local calendar date, not the browser's local date
+  let y, m, d;
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: loc.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+    [y, m, d] = parts.split("-").map(Number);
+  } catch (e) {
+    y = now.getFullYear(); m = now.getMonth() + 1; d = now.getDate();
+  }
+  return { y, m: m - 1, d, sun: computeSunTimes(y, m - 1, d, loc.lat, loc.lon) };
+}
+
+function renderHome() {
+  const banner = $("#homeBanner");
+  banner.innerHTML = "";
+  const loc = STATE.location;
+  const { sun } = currentSunTimesToday();
+  const tz = loc.timezone;
+
+  if (!STATE.forecast) {
+    banner.innerHTML = bannerHtml("error", "Couldn't load forecast data, and no cached copy is available for this location. Check your connection and try again.");
+  } else if (STATE.forecastMeta && STATE.forecastMeta.stale) {
+    banner.innerHTML = bannerHtml("warn", `Showing cached forecast from ${new Date(STATE.forecastMeta.fetchedAt).toLocaleString()} — couldn't reach Open-Meteo just now.`);
+  }
+
+  if (STATE.forecast) {
+    const cur = STATE.forecast.current || {};
+    const daily = STATE.forecast.daily || {};
+    $("#heroTemp").textContent = fmtTemp(cur.temperature_2m);
+    $("#heroCond").textContent = WEATHER_CODES[cur.weathercode] || "—";
+    $("#heroHiLo").textContent = `H: ${fmtTemp(daily.temperature_2m_max ? daily.temperature_2m_max[0] : null)} · L: ${fmtTemp(daily.temperature_2m_min ? daily.temperature_2m_min[0] : null)}`;
+    $("#heroUpdated").textContent = STATE.forecastMeta ? `Updated ${new Date(STATE.forecastMeta.fetchedAt).toLocaleTimeString()}` : "";
+    $("#statMax").textContent = fmtTemp(daily.temperature_2m_max ? daily.temperature_2m_max[0] : null);
+    $("#statMin").textContent = fmtTemp(daily.temperature_2m_min ? daily.temperature_2m_min[0] : null);
+    $("#statPrecip").textContent = daily.precipitation_sum ? `${round1(daily.precipitation_sum[0])} mm` : "—";
+    $("#statRainProb").textContent = daily.precipitation_probability_max ? `${daily.precipitation_probability_max[0]}%` : "—";
+    $("#badgeRain").textContent = `💧 ${daily.precipitation_probability_max ? daily.precipitation_probability_max[0] : "—"}% rain`;
+  } else {
+    ["heroTemp"].forEach(id => $("#" + id).textContent = "—°");
+    $("#heroCond").textContent = "No data available";
+    $("#heroHiLo").textContent = "H: —° · L: —°";
+    $("#heroUpdated").textContent = "";
+    $("#statMax").textContent = $("#statMin").textContent = $("#statPrecip").textContent = $("#statRainProb").textContent = "—";
+  }
+
+  // Sun arc + times (always computed locally, doesn't depend on forecast API)
+  if (!sun.polar && sun.sunrise !== null && sun.sunset !== null) {
+    const now = new Date();
+    const nowUTCmin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    let frac = (nowUTCmin - sun.sunrise) / (sun.sunset - sun.sunrise);
+    const isDaytime = frac >= 0 && frac <= 1;
+    drawSunArc(frac, isDaytime);
+    $("#arcSunrise").textContent = "Sunrise " + fmtMinutesAsClock(sun.sunrise, tz);
+    $("#arcSunset").textContent = "Sunset " + fmtMinutesAsClock(sun.sunset, tz);
+    $("#badgeDaylen").textContent = `☀ ${fmtDuration(sun.dayLengthMin)} daylight`;
+  } else {
+    drawSunArc(0.5, sun.dayLengthMin === 1440);
+    $("#arcSunrise").textContent = sun.dayLengthMin === 1440 ? "No sunset (polar day)" : "No sunrise (polar night)";
+    $("#arcSunset").textContent = "";
+    $("#badgeDaylen").textContent = `☀ ${fmtDuration(sun.dayLengthMin)} daylight`;
+  }
+
+  const rows = [
+    ["Astronomical dawn", sun.astronomicalDawn], ["Nautical dawn", sun.nauticalDawn],
+    ["Civil dawn", sun.civilDawn], ["Sunrise", sun.sunrise],
+    ["Solar noon", sun.solarNoon], ["Sunset", sun.sunset],
+    ["Civil dusk", sun.civilDusk], ["Nautical dusk", sun.nauticalDusk],
+    ["Astronomical dusk", sun.astronomicalDusk], ["Day length", null]
+  ];
+  $("#suntimesGrid").innerHTML = rows.map(([label, val], i) => {
+    if (label === "Day length") return `<div class="suntime-row"><span class="suntime-label">${label}</span><span class="suntime-val">${fmtDuration(sun.dayLengthMin)}</span></div>`;
+    return `<div class="suntime-row"><span class="suntime-label">${label}</span><span class="suntime-val">${fmtMinutesAsClock(val, tz)}</span></div>`;
+  }).join("");
+
+  $("#homeDataStatus").innerHTML =
+    `<span class="tag forecast">Forecast</span> Temperature &amp; rain from Open-Meteo` +
+    (STATE.forecastMeta && STATE.forecastMeta.cached ? ` <span class="tag cached">cached</span>` : ``) +
+    ` &nbsp;·&nbsp; <span class="tag estimated">Calculated</span> Sun &amp; twilight times (local astronomy engine)`;
+}
+
+/* =========================================================================
+   RENDER — Year view
+   ========================================================================= */
+function renderMonthGrid() {
+  const climate = STATE.climate;
+  const actual = STATE.yearActual[STATE.selectedYear];
+  const grid = $("#monthGrid");
+  if (!climate) { grid.innerHTML = `<p style="grid-column:1/-1;color:var(--ink-faint);font-size:13px">Historical data unavailable.</p>`; return; }
+  grid.innerHTML = climate.monthly.map((m, i) => {
+    const actualM = actual && actual.monthly ? actual.monthly[i] : null;
+    const showActual = actualM && actualM.avgMean !== null && actualM.avgMean !== undefined;
+    const meanShown = showActual ? actualM.avgMean : m.avgMean;
+    const rainShown = showActual ? actualM.avgPrecipTotal : m.avgPrecipTotal;
+    return `<button class="month-cell" data-month="${i}" aria-label="${MONTH_NAMES[i]} detail">
+      <div class="m-name">${MONTH_SHORT[i]}${showActual ? " •" : ""}</div>
+      <div class="m-temp">${fmtTemp(meanShown)}</div>
+      <div class="m-rain">${rainShown !== null && rainShown !== undefined ? Math.round(rainShown) + "mm" : "—"}</div>
+    </button>`;
+  }).join("");
+  $all(".month-cell", grid).forEach(btn => btn.addEventListener("click", () => openMonthModal(parseInt(btn.dataset.month, 10))));
+}
+function renderYearView() {
+  const banner = $("#yearBanner"); banner.innerHTML = "";
+  $("#yearLabel").textContent = STATE.selectedYear;
+  const now = new Date();
+  const actual = STATE.yearActual[STATE.selectedYear];
+  if (STATE.selectedYear > now.getFullYear()) {
+    $("#yearKind").textContent = "Future year — climate-normal estimate only";
+  } else if (STATE.selectedYear === now.getFullYear()) {
+    $("#yearKind").textContent = actual && actual.noDataYet ? "Year just started — showing climate normal" : "In progress — actual data so far, climate normal for rest of year";
+  } else {
+    $("#yearKind").textContent = "Complete year — actual observed data";
+  }
+
+  if (!STATE.climate) {
+    banner.innerHTML = bannerHtml("error", "Historical climate data isn't available for this location right now.");
+    return;
+  }
+  renderMonthGrid();
+  renderTempChart(STATE.climate.monthly, (actual && actual.monthly) ? actual.monthly : null);
+  renderRainChart(STATE.climate.monthly);
+  const wettest = STATE.climate.monthly.reduce((a, b) => (b.avgPrecipTotal || 0) > (a.avgPrecipTotal || 0) ? b : a);
+  const driest = STATE.climate.monthly.reduce((a, b) => (b.avgPrecipTotal ?? Infinity) < (a.avgPrecipTotal ?? Infinity) ? b : a);
+  $("#wettestMonth").textContent = MONTH_NAMES[wettest.month];
+  $("#driestMonth").textContent = MONTH_NAMES[driest.month];
+
+  const yrs = STATE.climateMeta && STATE.climateMeta.years ? `${STATE.climateMeta.years[0]}–${STATE.climateMeta.years[1]}` : "recent years";
+  $("#yearDataStatus").innerHTML =
+    `<span class="tag historical">Historical normal</span> ${yrs} average` +
+    (actual && actual.monthly ? ` &nbsp;·&nbsp; <span class="tag live">Actual</span> observed data for ${STATE.selectedYear}` : "") +
+    (STATE.climateMeta && STATE.climateMeta.cached ? ` <span class="tag cached">cached</span>` : "");
+}
+function openMonthModal(monthIdx) {
+  const climate = STATE.climate;
+  const m = climate.monthly[monthIdx];
+  const actual = STATE.yearActual[STATE.selectedYear];
+  const actualM = actual && actual.monthly ? actual.monthly[monthIdx] : null;
+  $("#monthModalTitle").textContent = `${MONTH_NAMES[monthIdx]} ${STATE.selectedYear}`;
+  const seasonDesc = describeSeasonForMonth(monthIdx);
+  $("#monthModalBody").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">Avg. high (normal)</div><div class="stat-val">${fmtTemp(m.avgHigh)}</div></div>
+      <div class="stat"><div class="stat-label">Avg. low (normal)</div><div class="stat-val">${fmtTemp(m.avgLow)}</div></div>
+      <div class="stat"><div class="stat-label">Mean temperature</div><div class="stat-val">${fmtTemp(m.avgMean)}</div></div>
+      <div class="stat"><div class="stat-label">Avg. rainfall</div><div class="stat-val">${m.avgPrecipTotal !== null ? Math.round(m.avgPrecipTotal) + " mm" : "—"}</div></div>
+      <div class="stat"><div class="stat-label">Rainy days</div><div class="stat-val">${m.avgRainyDays !== null ? Math.round(m.avgRainyDays) : "—"}</div></div>
+      <div class="stat"><div class="stat-label">Typical pattern</div><div class="stat-val" style="font-size:13px">${seasonDesc}</div></div>
+    </div>
+    ${actualM && actualM.avgMean !== null && actualM.avgMean !== undefined ? `
+      <div class="section-title" style="margin-top:18px">Actual ${STATE.selectedYear}</div>
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">Avg. high</div><div class="stat-val">${fmtTemp(actualM.avgHigh)}</div></div>
+        <div class="stat"><div class="stat-label">Avg. low</div><div class="stat-val">${fmtTemp(actualM.avgLow)}</div></div>
+        <div class="stat"><div class="stat-label">Rainfall</div><div class="stat-val">${actualM.avgPrecipTotal !== null ? Math.round(actualM.avgPrecipTotal) + " mm" : "—"}</div></div>
+      </div>` : `<div class="data-status"><span class="tag estimated">Estimated</span> No completed observed data for this month/year yet — normal climate values shown above.</div>`}
+    <div class="data-status"><span class="tag historical">Historical normal</span> based on ${STATE.climateMeta && STATE.climateMeta.years ? STATE.climateMeta.years.join("–") : "recent years"}</div>
+  `;
+  $("#monthModal").classList.remove("hidden");
+}
+function describeSeasonForMonth(monthIdx) {
+  const det = STATE._seasonDetection;
+  if (!det) return "Not enough data";
+  const midDayIdx = det.keys.findIndex(k => k === `${pad2(monthIdx + 1)}-15`);
+  if (midDayIdx < 0) return "—";
+  const t = det.rollTemp[midDayIdx], p = det.rollPrecip[midDayIdx];
+  const isHot = t !== null && t > det.annualMeanTemp + det.tempRange * 0.1;
+  const isCool = t !== null && t < det.annualMeanTemp - det.tempRange * 0.1;
+  const isWet = p !== null && det.precipRange > 5 && p > det.annualMeanPrecip + det.precipRange * 0.15;
+  if (isWet && isHot) return "Warm &amp; wet (monsoon-like)";
+  if (isWet) return "Wet season";
+  if (isHot) return "Warmer part of the year";
+  if (isCool) return "Cooler part of the year";
+  return "Transitional";
+}
+
+/* =========================================================================
+   RENDER — Daylight view
+   ========================================================================= */
+function renderDaylightView() {
+  renderDaylenChart(STATE.climate, STATE.location.lat, STATE.location.lon);
+  renderSunTrendChart(STATE.location.lat, STATE.location.lon, STATE.location.timezone);
+  populateMonthSelect();
+  renderDaylightMonthList();
+}
+function populateMonthSelect() {
+  const sel = $("#daylightMonthSelect");
+  sel.innerHTML = MONTH_NAMES.map((n, i) => `<option value="${i}" ${i === STATE.daylightMonth ? "selected" : ""}>${n}</option>`).join("");
+}
+function renderDaylightMonthList() {
+  const listEl = $("#daylightMonthList");
+  const loc = STATE.location;
+  const y = STATE.selectedYear, m = STATE.daylightMonth;
+  const dim = daysInMonth(y, m);
+  let html = "";
+  for (let d = 1; d <= dim; d += 1) {
+    const st = computeSunTimes(y, m, d, loc.lat, loc.lon);
+    html += `<button class="suntime-row" style="width:100%;background:none;border:none;text-align:left;cursor:pointer" data-y="${y}" data-m="${m}" data-d="${d}">
+      <span class="suntime-label">${MONTH_SHORT[m]} ${d}</span>
+      <span class="suntime-val" style="font-size:12.5px;font-weight:600">${fmtMinutesAsClock(st.sunrise, loc.timezone)} – ${fmtMinutesAsClock(st.sunset, loc.timezone)} · ${fmtDuration(st.dayLengthMin)}</span>
+    </button>`;
+  }
+  listEl.innerHTML = html;
+  $all(".suntime-row", listEl).forEach(row => row.addEventListener("click", () => {
+    openDateDetail(parseInt(row.dataset.y, 10), parseInt(row.dataset.m, 10), parseInt(row.dataset.d, 10));
+  }));
+}
+function openDateDetail(y, m, d) {
+  const loc = STATE.location;
+  const st = computeSunTimes(y, m, d, loc.lat, loc.lon);
+  const dow = new Date(Date.UTC(y, m, d)).getUTCDay();
+  const key = `${pad2(m + 1)}-${pad2(d)}`;
+  const clim = STATE.climate ? STATE.climate.doy[key] : null;
+
+  // forecast overlay if this date is within the fetched forecast window
+  let forecastRow = "";
+  if (STATE.forecast && STATE.forecast.daily && STATE.forecast.daily.time) {
+    const idx = STATE.forecast.daily.time.indexOf(ymd(y, m, d));
+    if (idx >= 0) {
+      const hi = STATE.forecast.daily.temperature_2m_max[idx], lo = STATE.forecast.daily.temperature_2m_min[idx];
+      const pr = STATE.forecast.daily.precipitation_probability_max ? STATE.forecast.daily.precipitation_probability_max[idx] : null;
+      forecastRow = `<div class="data-status"><span class="tag forecast">Forecast</span> High ${fmtTemp(hi)} · Low ${fmtTemp(lo)}${pr !== null ? ` · ${pr}% rain chance` : ""}</div>`;
+    }
+  }
+
+  $("#detailModalTitle").textContent = fmtDateHuman(y, m, d);
+  $("#detailModalBody").innerHTML = `
+    <div class="detail-date-head"><span class="dd-day">${DAY_NAMES[dow]}</span></div>
+    <div class="suntimes-grid">
+      <div class="suntime-row"><span class="suntime-label">Astronomical dawn</span><span class="suntime-val">${fmtMinutesAsClock(st.astronomicalDawn, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Nautical dawn</span><span class="suntime-val">${fmtMinutesAsClock(st.nauticalDawn, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Civil dawn</span><span class="suntime-val">${fmtMinutesAsClock(st.civilDawn, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Sunrise</span><span class="suntime-val">${fmtMinutesAsClock(st.sunrise, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Solar noon</span><span class="suntime-val">${fmtMinutesAsClock(st.solarNoon, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Sunset</span><span class="suntime-val">${fmtMinutesAsClock(st.sunset, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Civil dusk</span><span class="suntime-val">${fmtMinutesAsClock(st.civilDusk, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Nautical dusk</span><span class="suntime-val">${fmtMinutesAsClock(st.nauticalDusk, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Astronomical dusk</span><span class="suntime-val">${fmtMinutesAsClock(st.astronomicalDusk, loc.timezone)}</span></div>
+      <div class="suntime-row"><span class="suntime-label">Day length</span><span class="suntime-val">${fmtDuration(st.dayLengthMin)}</span></div>
+    </div>
+    ${forecastRow}
+    ${clim ? `<div class="data-status"><span class="tag historical">Historical average for this date</span> High ${fmtTemp(clim.high)} · Low ${fmtTemp(clim.low)} · ${Math.round(clim.precip * 10) / 10}mm typical rain</div>` : ""}
+  `;
+  $("#detailModal").classList.remove("hidden");
+}
+
+/* =========================================================================
+   RENDER — Seasons view
+   ========================================================================= */
+const SEASON_PALETTE = ["#2F6690", "#DB9A34", "#2C7A5C", "#6B4E8E"];
+function renderSeasonsView() {
+  const banner = $("#seasonsBanner"); banner.innerHTML = "";
+  if (!STATE.climate) {
+    banner.innerHTML = bannerHtml("error", "Not enough historical data to estimate seasons for this location.");
+    $("#timelineTrack").innerHTML = ""; $("#seasonNotes").innerHTML = ""; $("#monsoonSummary").innerHTML = "";
+    return;
+  }
+  const det = detectSeasons(STATE.climate);
+  STATE._seasonDetection = det;
+  if (!det) {
+    banner.innerHTML = bannerHtml("warn", "Couldn't confidently detect seasonal transitions from the available data.");
+    return;
+  }
+
+  // Build 4 segments across the 366-day circular series based on detected transition indices
+  const n = det.keys.length;
+  const marks = [];
+  if (det.coolingIdx !== null) marks.push({ idx: det.coolingIdx, label: "Cooler period" });
+  if (det.wetStartIdx !== null) marks.push({ idx: det.wetStartIdx, label: "Wet season" });
+  if (det.wetEndIdx !== null) marks.push({ idx: det.wetEndIdx, label: "Transition" });
+  if (det.warmingIdx !== null) marks.push({ idx: det.warmingIdx, label: "Warmer/dry period" });
+  marks.sort((a, b) => a.idx - b.idx);
+
+  let segHtml = "", monthsHtml = "";
+  if (marks.length >= 2) {
+    for (let i = 0; i < marks.length; i++) {
+      const start = marks[i].idx;
+      const end = marks[(i + 1) % marks.length].idx;
+      const len = ((end - start + n) % n) || n;
+      const pct = (len / n) * 100;
+      segHtml += `<div class="timeline-seg" style="width:${pct}%;background:${SEASON_PALETTE[i % SEASON_PALETTE.length]}">${marks[i].label}</div>`;
+    }
+  } else {
+    segHtml = `<div class="timeline-seg" style="width:100%;background:${SEASON_PALETTE[0]}">Not enough seasonal contrast detected</div>`;
+  }
+  monthsHtml = MONTH_SHORT.map(m => `<span>${m}</span>`).join("");
+  $("#timelineTrack").innerHTML = segHtml;
+  $("#timelineMonths").innerHTML = monthsHtml;
+
+  const notes = [];
+  if (det.coolingIdx !== null) notes.push(`Cooler pattern likely begins around <b>${det.idxToLabel(det.coolingIdx)}</b>.`);
+  if (det.warmingIdx !== null) notes.push(`Warmer pattern likely strengthens around <b>${det.idxToLabel(det.warmingIdx)}</b>.`);
+  if (det.wetStartIdx !== null) notes.push(`Wet/monsoon-like pattern usually develops around <b>${det.idxToLabel(det.wetStartIdx)}</b>.`);
+  if (det.wetEndIdx !== null) notes.push(`Wet pattern usually eases by <b>${det.idxToLabel(det.wetEndIdx)}</b>.`);
+  if (det.precipRange <= 5) notes.push("Rainfall is fairly steady across the year here — no strong wet/dry contrast detected.");
+  $("#seasonNotes").innerHTML = notes.map(n => `<div class="season-note">${n} <span style="opacity:.7">(estimated from historical climate patterns)</span></div>`).join("");
+
+  // Monsoon summary card (month-level, easier to read than day-level)
+  const monthly = STATE.climate.monthly;
+  const meanMonthlyPrecip = monthly.reduce((a, b) => a + (b.avgPrecipTotal || 0), 0) / 12;
+  const wetMonths = monthly.filter(m => (m.avgPrecipTotal || 0) > meanMonthlyPrecip * 1.4).map(m => MONTH_NAMES[m.month]);
+  const wettest = monthly.reduce((a, b) => (b.avgPrecipTotal || 0) > (a.avgPrecipTotal || 0) ? b : a);
+  const driest = monthly.reduce((a, b) => (b.avgPrecipTotal ?? Infinity) < (a.avgPrecipTotal ?? Infinity) ? b : a);
+  $("#monsoonSummary").innerHTML = `
+    <div class="stat-grid">
+      <div class="stat"><div class="stat-label">Wettest month</div><div class="stat-val">${MONTH_NAMES[wettest.month]}</div><div class="stat-sub">${Math.round(wettest.avgPrecipTotal)} mm avg.</div></div>
+      <div class="stat"><div class="stat-label">Driest month</div><div class="stat-val">${MONTH_NAMES[driest.month]}</div><div class="stat-sub">${Math.round(driest.avgPrecipTotal)} mm avg.</div></div>
+    </div>
+    <div class="season-note" style="margin-top:12px">
+      ${wetMonths.length ? `Estimated wetter-than-average months: <b>${wetMonths.join(", ")}</b>.` : "No months stand out as significantly wetter than the yearly average."}
+      <span style="opacity:.7">(estimated from historical climate patterns, not a forecast)</span>
+    </div>`;
+  const yrs = STATE.climateMeta && STATE.climateMeta.years ? `${STATE.climateMeta.years[0]}–${STATE.climateMeta.years[1]}` : "recent years";
+  $("#seasonsDataStatus").innerHTML = `<span class="tag historical">Historical</span> based on ${yrs}` + (STATE.climateMeta && STATE.climateMeta.cached ? ` <span class="tag cached">cached</span>` : "");
+}
+
+/* =========================================================================
+   Settings view
+   ========================================================================= */
+function renderSettingsView() {
+  $("#settingsLocName").textContent = `${STATE.location.name}${STATE.location.admin1 ? ", " + STATE.location.admin1 : ""}${STATE.location.country ? ", " + STATE.location.country : ""}`;
+  $("#settingsLocCoords").textContent = `${STATE.location.lat.toFixed(4)}, ${STATE.location.lon.toFixed(4)} · ${STATE.location.timezone}`;
+  $all("#unitTempSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.val === STATE.settings.tempUnit));
+  $all("#unitTimeSeg button").forEach(b => b.setAttribute("aria-pressed", b.dataset.val === STATE.settings.timeFormat));
+}
+
+/* =========================================================================
+   Navigation / view switching
+   ========================================================================= */
+async function switchView(view) {
+  STATE.view = view;
+  $all(".view").forEach(v => v.classList.remove("active"));
+  $(`#view-${view}`).classList.add("active");
+  $all(".nav-btn").forEach(b => {
+    const active = b.dataset.view === view;
+    b.classList.toggle("active", active);
+    if (active) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  });
+  if (view === "year") { await ensureYearData(); renderYearView(); }
+  if (view === "daylight") { await ensureClimateData(); renderDaylightView(); }
+  if (view === "seasons") { await ensureClimateData(); renderSeasonsView(); }
+  if (view === "settings") renderSettingsView();
+  if (view === "home") renderHome();
+}
+async function ensureClimateData() {
+  if (STATE.climate) return;
+  showToast("Loading historical climate data…");
+  const r = await loadClimate(false);
+  if (!r.ok) { showToast("Couldn't load historical data."); return; }
+  STATE._seasonDetection = detectSeasons(STATE.climate);
+}
+async function ensureYearData() {
+  await ensureClimateData();
+  await loadActualYear(STATE.selectedYear);
+}
+
+/* =========================================================================
+   Location handling
+   ========================================================================= */
+async function setLocation(loc) {
+  STATE.location = loc;
+  saveLocation();
+  STATE.climate = null; STATE.climateMeta = null; STATE.forecast = null; STATE.forecastMeta = null;
+  STATE.yearActual = {};
+  $("#locBtnText").textContent = `${loc.name}${loc.admin1 ? ", " + loc.admin1 : ""}`;
+  showToast(`Location set to ${loc.name}`);
+  await loadForecast(true);
+  renderHome();
+  if (STATE.view !== "home") switchView(STATE.view);
+}
+function openLocModal() { $("#locModal").classList.remove("hidden"); $("#locSearchInput").focus(); }
+function closeLocModal() { $("#locModal").classList.add("hidden"); $("#locResults").innerHTML = ""; $("#locSearchInput").value = ""; }
+
+let searchDebounce = null;
+function wireLocationSearch() {
+  $("#locSearchInput").addEventListener("input", e => {
+    clearTimeout(searchDebounce);
+    const q = e.target.value.trim();
+    if (q.length < 2) { $("#locResults").innerHTML = ""; return; }
+    searchDebounce = setTimeout(async () => {
+      $("#locResults").innerHTML = `<div class="skel" style="height:44px;margin:6px 0"></div><div class="skel" style="height:44px;margin:6px 0"></div>`;
+      try {
+        const results = await apiGeocode(q);
+        if (!results.length) { $("#locResults").innerHTML = `<p style="color:var(--ink-faint);font-size:13px;padding:10px 4px">No places found for "${q}".</p>`; return; }
+        $("#locResults").innerHTML = results.map((r, i) => `
+          <button class="result-item" data-i="${i}">
+            <span>${r.name}${r.admin1 ? ", " + r.admin1 : ""}</span>
+            <span class="result-sub">${r.country} · ${r.lat.toFixed(2)}, ${r.lon.toFixed(2)}</span>
+          </button>`).join("");
+        $all(".result-item", $("#locResults")).forEach((btn, i) => btn.addEventListener("click", () => {
+          setLocation(results[i]); closeLocModal();
+        }));
+      } catch (err) {
+        $("#locResults").innerHTML = bannerHtml("error", "Location search failed. Check your connection and try again.");
+      }
+    }, 400);
+  });
+}
+function wireGeolocation() {
+  $("#useGeoBtn").addEventListener("click", () => {
+    if (!navigator.geolocation) { showToast("Geolocation isn't supported on this device."); return; }
+    $("#useGeoBtn").textContent = "Locating…";
+    navigator.geolocation.getCurrentPosition(async pos => {
+      const { latitude, longitude } = pos.coords;
+      $("#useGeoBtn").textContent = "📍 Use my current location";
+      const [place, tz] = await Promise.all([apiReverseGeocode(latitude, longitude), apiGetTimezoneFor(latitude, longitude)]);
+      const loc = { name: place.name, admin1: place.admin1, country: place.country, lat: latitude, lon: longitude, timezone: tz };
+      await setLocation(loc);
+      closeLocModal();
+    }, err => {
+      $("#useGeoBtn").textContent = "📍 Use my current location";
+      const msgs = { 1: "Location permission was denied.", 2: "Location is currently unavailable.", 3: "Location request timed out." };
+      showToast(msgs[err.code] || "Couldn't get your location.");
+    }, { enableHighAccuracy: false, timeout: 10000 });
+  });
+}
+
+/* =========================================================================
+   Event wiring
+   ========================================================================= */
+function wireNav() {
+  $all(".nav-btn").forEach(btn => btn.addEventListener("click", () => switchView(btn.dataset.view)));
+}
+function wireModals() {
+  $("#locBtn").addEventListener("click", openLocModal);
+  $("#locModalClose").addEventListener("click", closeLocModal);
+  $("#locModal").addEventListener("click", e => { if (e.target.id === "locModal") closeLocModal(); });
+  $("#settingsChangeLoc").addEventListener("click", openLocModal);
+
+  $("#detailModalClose").addEventListener("click", () => $("#detailModal").classList.add("hidden"));
+  $("#detailModal").addEventListener("click", e => { if (e.target.id === "detailModal") $("#detailModal").classList.add("hidden"); });
+
+  $("#monthModalClose").addEventListener("click", () => $("#monthModal").classList.add("hidden"));
+  $("#monthModal").addEventListener("click", e => { if (e.target.id === "monthModal") $("#monthModal").classList.add("hidden"); });
+}
+function wireYearControls() {
+  $("#yearPrev").addEventListener("click", async () => { STATE.selectedYear--; await ensureYearData(); renderYearView(); });
+  $("#yearNext").addEventListener("click", async () => { STATE.selectedYear++; await ensureYearData(); renderYearView(); });
+}
+function wireDaylightControls() {
+  $("#daylightMonthSelect").addEventListener("change", e => { STATE.daylightMonth = parseInt(e.target.value, 10); renderDaylightMonthList(); });
+  $("#dateDetailToday").addEventListener("click", () => {
+    const now = new Date();
+    const parts = new Intl.DateTimeFormat("en-CA", { timeZone: STATE.location.timezone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+    $("#dateDetailInput").value = parts;
+    const [y, m, d] = parts.split("-").map(Number);
+    openDateDetail(y, m - 1, d);
+  });
+  $("#dateDetailGo").addEventListener("click", () => {
+    const v = $("#dateDetailInput").value.trim();
+    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
+    if (!match) { showToast("Use the format YYYY-MM-DD."); return; }
+    const y = parseInt(match[1], 10), m = parseInt(match[2], 10) - 1, d = parseInt(match[3], 10);
+    if (m < 0 || m > 11 || d < 1 || d > daysInMonth(y, m)) { showToast("That date doesn't exist."); return; }
+    openDateDetail(y, m, d);
+  });
+}
+function wireSettingsControls() {
+  $all("#unitTempSeg button").forEach(b => b.addEventListener("click", () => {
+    STATE.settings.tempUnit = b.dataset.val; saveSettings(); renderSettingsView();
+    if (STATE.view === "home") renderHome(); if (STATE.view === "year") renderYearView();
+  }));
+  $all("#unitTimeSeg button").forEach(b => b.addEventListener("click", () => {
+    STATE.settings.timeFormat = b.dataset.val; saveSettings(); renderSettingsView();
+    if (STATE.view === "home") renderHome(); if (STATE.view === "daylight") renderDaylightView();
+  }));
+  $("#clearCacheBtn").addEventListener("click", () => {
+    Object.keys(localStorage).filter(k => k.startsWith("yearscope.climate.") || k.startsWith("yearscope.forecast.")).forEach(k => localStorage.removeItem(k));
+    STATE.climate = null; STATE.climateMeta = null; STATE.forecast = null; STATE.forecastMeta = null; STATE.yearActual = {};
+    showToast("Cache cleared.");
+    if (STATE.view === "home") switchView("home");
+  });
+}
+window.addEventListener("resize", () => {
+  clearTimeout(window._rsz);
+  window._rsz = setTimeout(() => {
+    if (STATE.view === "year" && STATE.climate) renderYearView();
+    if (STATE.view === "daylight" && STATE.climate) renderDaylightView();
+  }, 200);
+});
+
+/* =========================================================================
+   INIT
+   ========================================================================= */
+async function init() {
+  $("#locBtnText").textContent = `${STATE.location.name}${STATE.location.admin1 ? ", " + STATE.location.admin1 : ""}`;
+  wireNav(); wireModals(); wireLocationSearch(); wireGeolocation();
+  wireYearControls(); wireDaylightControls(); wireSettingsControls();
+
+  renderHome(); // render skeleton state immediately
+  const fRes = await loadForecast(false);
+  if (!fRes.ok) showToast("Couldn't load forecast data.");
+  renderHome();
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js").catch(() => {});
+  }
+}
+document.addEventListener("DOMContentLoaded", init);
+</script>
+</body>
+</html>
