@@ -216,6 +216,9 @@ canvas.chart-canvas{display:block;touch-action:pan-y}
 .legend-swatch.dot{width:9px;height:9px;border-radius:50%}
 
 /* ---------- Season timeline ---------- */
+.timeline-marks{margin-bottom:2px}
+.tmark{position:absolute;top:0;transform:translateX(-50%);font-size:10px;font-weight:700;color:var(--ink-soft);white-space:nowrap;text-align:center}
+.tmark::after{content:"";position:absolute;left:50%;top:14px;width:1px;height:6px;background:var(--ink-faint)}
 .timeline-track{position:relative;height:52px;border-radius:12px;overflow:hidden;display:flex}
 .timeline-seg{height:100%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;min-width:0}
 .timeline-months{display:flex;margin-top:4px;font-size:10px;color:var(--ink-faint);font-weight:600}
@@ -404,12 +407,35 @@ canvas.chart-canvas{display:block;touch-action:pan-y}
   <section class="view" id="view-seasons" aria-labelledby="seasons-heading">
     <h1 class="visually-hidden" id="seasons-heading">Seasonal patterns</h1>
     <div id="seasonsBanner"></div>
-    <div class="section-title">Estimated season timeline</div>
+
+    <div class="card" style="padding-bottom:12px">
+      <label class="field-label">Base the pattern on</label>
+      <div class="seg" id="seasonsModeSeg">
+        <button data-val="alltime" aria-pressed="true">All-time pattern</button>
+        <button data-val="year" aria-pressed="false">A specific year</button>
+      </div>
+      <div id="seasonsYearNav" style="display:none;align-items:center;justify-content:center;gap:14px;margin-top:12px">
+        <button class="btn secondary" id="seasonsYearPrev" aria-label="Previous year">‹</button>
+        <span id="seasonsYearLabel" style="font-weight:800;font-size:15px;min-width:52px;text-align:center">—</span>
+        <button class="btn secondary" id="seasonsYearNext" aria-label="Next year">›</button>
+      </div>
+    </div>
+
+    <div class="section-title" id="timelineSectionTitle">Estimated season timeline</div>
     <div class="card">
+      <div class="timeline-marks" id="timelineMarks" style="position:relative;height:16px"></div>
       <div class="timeline-track" id="timelineTrack"></div>
       <div class="timeline-months" id="timelineMonths"></div>
-      <div class="season-note">Boundaries below are <b>estimated from historical climate patterns</b> at your selected location — not fixed calendar rules, and not a guarantee for any specific year.</div>
+      <div class="season-note" id="timelineIntroNote">Boundaries below are <b>estimated from historical climate patterns</b> at your selected location — not fixed calendar rules, and not a guarantee for any specific year.</div>
       <div id="seasonNotes"></div>
+    </div>
+
+    <div class="section-title">Bangla ritu (traditional calendar seasons)</div>
+    <div class="card">
+      <div class="timeline-track" id="rituTrack" style="height:40px"></div>
+      <div class="timeline-months" id="timelineMonths2"></div>
+      <div id="rituNow" class="season-note" style="margin-top:10px"></div>
+      <div class="data-status">These six ritu follow the traditional Bengali calendar's fixed dates — they don't shift with this location's actual weather, so compare them against the data-derived timeline above.</div>
     </div>
 
     <div class="section-title">Monsoon / wet-season estimate</div>
@@ -559,6 +585,41 @@ const MONTH_NAMES = ["January","February","March","April","May","June","July","A
 const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const DAY_NAMES = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
 
+// Bangla six-season (ritu) calendar — traditional, fixed Gregorian approximations
+// (Bangladesh's revised Bangla calendar), independent of any location's actual
+// climate. Shown purely as a cultural reference alongside the data-derived timeline.
+// month/day below are 0-based month, 1-based day = start date of that ritu.
+const BANGLA_RITU = [
+  { bn: "বসন্ত", translit: "Bôsôntô", en: "Spring", month: 1, day: 13 },   // Falgun 1
+  { bn: "গ্রীষ্ম", translit: "Grishmo", en: "Summer", month: 3, day: 14 },  // Boishakh 1
+  { bn: "বর্ষা", translit: "Bôrsha", en: "Monsoon", month: 5, day: 15 },   // Ashar 1
+  { bn: "শরৎ", translit: "Shôrôt", en: "Autumn", month: 7, day: 17 },      // Bhadro 1
+  { bn: "হেমন্ত", translit: "Hemôntô", en: "Late autumn", month: 9, day: 18 }, // Kartik 1
+  { bn: "শীত", translit: "Sheet", en: "Winter", month: 11, day: 16 }       // Poush 1
+];
+function rituIndexForEachDay(order) {
+  // order: array of 366 "MM-DD" keys (Jan1..Dec31, with Feb29 slot). Returns a
+  // parallel array giving the ritu index (0-5, matching BANGLA_RITU) for each day.
+  const boundaries = BANGLA_RITU.map(r => order.indexOf(`${pad2(r.month + 1)}-${pad2(r.day)}`));
+  const n = boundaries.length;
+  return order.map((key, i) => {
+    if (i < boundaries[0] || i >= boundaries[n - 1]) return n - 1; // Sheet/Winter wraps across Dec->Jan
+    let ritu = 0;
+    for (let b = 1; b < n; b++) { if (i >= boundaries[b]) ritu = b; else break; }
+    return ritu;
+  });
+}
+function currentRituIndex(date) {
+  const m = date.getMonth(), d = date.getDate();
+  let idx = BANGLA_RITU.length - 1;
+  for (let i = BANGLA_RITU.length - 1; i >= 0; i--) {
+    const r = BANGLA_RITU[i];
+    if (m > r.month || (m === r.month && d >= r.day)) { idx = i; break; }
+  }
+  if (m < BANGLA_RITU[0].month || (m === BANGLA_RITU[0].month && d < BANGLA_RITU[0].day)) idx = BANGLA_RITU.length - 1;
+  return idx;
+}
+
 const WEATHER_CODES = {
   0:"Clear sky",1:"Mainly clear",2:"Partly cloudy",3:"Overcast",
   45:"Fog",48:"Depositing rime fog",
@@ -663,8 +724,10 @@ const STATE = {
   climateMeta: null,   // { fetchedAt, cached, years:[...] }
   forecast: null,      // forecast API response subset
   forecastMeta: null,  // { fetchedAt, cached }
-  yearActual: {},      // { [year]: { monthly:[...], fetchedAt, isComplete } } actual observed data per requested year
-  daylightMonth: new Date().getMonth()
+  yearActual: {},      // { [year]: { monthly:[...], doy:{...}, fetchedAt, isComplete } } actual observed data per requested year
+  daylightMonth: new Date().getMonth(),
+  seasonsMode: "alltime",  // "alltime" | "year"
+  seasonsYear: new Date().getFullYear()
 };
 
 function saveLocation() { lsSet(LS_KEYS.location, STATE.location); }
@@ -950,7 +1013,7 @@ async function loadActualYear(year) {
   try {
     const data = await apiArchive(STATE.location, startDate, endDate);
     const agg = aggregateArchive(data.daily || {});
-    const result = { monthly: agg.monthly, isComplete: isPastYear, lastDate: endDate };
+    const result = { monthly: agg.monthly, doy: agg.doy, isComplete: isPastYear, lastDate: endDate };
     STATE.yearActual[year] = result;
     lsSet(cacheKeyStr, { fetchedAt: Date.now(), data: result });
     return { ok: true, cached: false };
@@ -964,20 +1027,33 @@ async function loadActualYear(year) {
    SEASON DETECTION — rolling-average analysis over the day-of-year climate
    normal (doy). Purely derived from data; no hard-coded calendar dates.
    ========================================================================= */
-function buildDoySeries(climate) {
-  // Build an ordered 366-length array (Jan1..Dec31, Feb29 filled from neighbor if absent)
-  const year = 2001; // any non-leap reference for iteration order; we still use MM-DD keys
+function doyOrderKeys() {
   const order = [];
   for (let m = 0; m < 12; m++) {
     const dim = m === 1 ? 29 : daysInMonth(2000, m); // include Feb29 slot
     for (let d = 1; d <= dim; d++) order.push(`${pad2(m + 1)}-${pad2(d)}`);
   }
+  return order;
+}
+/**
+ * Build a 366-day series from a primary doy map (e.g. a specific year's actual
+ * data), falling back to a secondary doy map (e.g. the multi-year climate
+ * normal) for any day the primary doesn't cover. Passing null/undefined for
+ * either map just skips it. Reports how much of the year had to fall back.
+ */
+function buildDoySeries(primaryDoy, fallbackDoy) {
+  const order = doyOrderKeys();
+  let usedFallback = 0;
   const series = order.map(key => {
-    let v = climate.doy[key];
-    if (!v && key === "02-29") v = climate.doy["02-28"]; // fallback if no leap years in range
-    return v || { mean: null, high: null, low: null, precip: null };
+    let v = primaryDoy ? primaryDoy[key] : null;
+    if (!v && key === "02-29" && primaryDoy) v = primaryDoy["02-28"];
+    if (v) return v;
+    usedFallback++;
+    let f = fallbackDoy ? fallbackDoy[key] : null;
+    if (!f && key === "02-29" && fallbackDoy) f = fallbackDoy["02-28"];
+    return f || { mean: null, high: null, low: null, precip: null };
   });
-  return { keys: order, series };
+  return { keys: order, series, usedFallback, total: order.length };
 }
 function rollingAverage(values, windowSize) {
   const n = values.length;
@@ -994,8 +1070,8 @@ function rollingAverage(values, windowSize) {
   }
   return out;
 }
-function detectSeasons(climate) {
-  const { keys, series } = buildDoySeries(climate);
+function detectSeasons(doyBundle) {
+  const { keys, series } = doyBundle;
   const meanTemp = series.map(s => s.mean);
   const precip = series.map(s => s.precip);
   const rollTemp = rollingAverage(meanTemp, 15);
@@ -1069,6 +1145,28 @@ function detectSeasons(climate) {
     wetStartIdx, wetEndIdx,
     idxToLabel
   };
+}
+/** All-time mode: detection purely from the multi-year climate normal. */
+function detectSeasonsAllTime(climate) {
+  if (!climate) return null;
+  const bundle = buildDoySeries(climate.doy, null);
+  return detectSeasons(bundle);
+}
+/**
+ * Specific-year mode: detection from that year's actual observed daily data,
+ * falling back to the climate normal for any day not yet observed (e.g. the
+ * remainder of the current year). Result carries a coverage fraction so the
+ * UI can be honest about how much is real vs. filled in from the normal.
+ */
+function detectSeasonsForYear(year) {
+  const actual = STATE.yearActual[year];
+  const primary = actual && actual.doy ? actual.doy : null;
+  const fallback = STATE.climate ? STATE.climate.doy : null;
+  if (!primary && !fallback) return null;
+  const bundle = buildDoySeries(primary, fallback);
+  const det = detectSeasons(bundle);
+  if (det) det.coverageFraction = bundle.total ? 1 - (bundle.usedFallback / bundle.total) : 0;
+  return det;
 }
 
 /* =========================================================================
@@ -1491,30 +1589,51 @@ function openDateDetail(y, m, d) {
    RENDER — Seasons view
    ========================================================================= */
 const SEASON_PALETTE = ["#2F6690", "#DB9A34", "#2C7A5C", "#6B4E8E"];
-function renderSeasonsView() {
-  const banner = $("#seasonsBanner"); banner.innerHTML = "";
-  if (!STATE.climate) {
-    banner.innerHTML = bannerHtml("error", "Not enough historical data to estimate seasons for this location.");
-    $("#timelineTrack").innerHTML = ""; $("#seasonNotes").innerHTML = ""; $("#monsoonSummary").innerHTML = "";
-    return;
-  }
-  const det = detectSeasons(STATE.climate);
-  STATE._seasonDetection = det;
-  if (!det) {
-    banner.innerHTML = bannerHtml("warn", "Couldn't confidently detect seasonal transitions from the available data.");
-    return;
-  }
+const RITU_COLORS = ["#8FA86B", "#D98A3D", "#3E7CA6", "#C79A3E", "#8C6B4A", "#5E7A9B"]; // Bôsôntô..Sheet
 
-  // Build 4 segments across the 366-day circular series based on detected transition indices
+function labelWithDate(idxLabel, keys, idx) {
+  // idxLabel like "early October" -> also show the exact underlying MM-DD for precision
+  const [mm, dd] = keys[idx].split("-").map(Number);
+  return `${idxLabel} (around ${MONTH_SHORT[mm - 1]} ${dd})`;
+}
+
+function renderTimelineMarks(marks, n) {
+  const wrap = $("#timelineMarks");
+  wrap.innerHTML = marks.map(m => {
+    const pct = (m.idx / n) * 100;
+    return `<span class="tmark" style="left:${pct}%">${m.dateLabel}</span>`;
+  }).join("");
+}
+
+function renderRituStrip() {
+  const order = doyOrderKeys();
+  const n = order.length;
+  const track = $("#rituTrack");
+  track.innerHTML = BANGLA_RITU.map((r, i) => {
+    const startIdx = order.indexOf(`${pad2(r.month + 1)}-${pad2(r.day)}`);
+    const nextIdx = order.indexOf(`${pad2(BANGLA_RITU[(i + 1) % 6].month + 1)}-${pad2(BANGLA_RITU[(i + 1) % 6].day)}`);
+    const len = ((nextIdx - startIdx + n) % n) || n;
+    const pct = (len / n) * 100;
+    return `<div class="timeline-seg" style="width:${pct}%;background:${RITU_COLORS[i]}" title="${r.translit} (${r.en})">${r.bn}</div>`;
+  }).join("");
+  $("#timelineMonths2").innerHTML = MONTH_SHORT.map(m => `<span>${m}</span>`).join("");
+
+  const now = new Date();
+  const idx = currentRituIndex(now);
+  const r = BANGLA_RITU[idx];
+  $("#rituNow").innerHTML = `Today falls in <b>${r.bn} · ${r.translit} (${r.en})</b> on the traditional Bengali calendar.`;
+}
+
+function renderSeasonDetection(det, contextLabel, coverageNote) {
   const n = det.keys.length;
   const marks = [];
-  if (det.coolingIdx !== null) marks.push({ idx: det.coolingIdx, label: "Cooler period" });
-  if (det.wetStartIdx !== null) marks.push({ idx: det.wetStartIdx, label: "Wet season" });
-  if (det.wetEndIdx !== null) marks.push({ idx: det.wetEndIdx, label: "Transition" });
-  if (det.warmingIdx !== null) marks.push({ idx: det.warmingIdx, label: "Warmer/dry period" });
+  if (det.coolingIdx !== null) marks.push({ idx: det.coolingIdx, label: "Turns cooler", kind: "cool" });
+  if (det.wetStartIdx !== null) marks.push({ idx: det.wetStartIdx, label: "Wet season starts", kind: "wet" });
+  if (det.wetEndIdx !== null) marks.push({ idx: det.wetEndIdx, label: "Wet season eases", kind: "dry" });
+  if (det.warmingIdx !== null) marks.push({ idx: det.warmingIdx, label: "Turns warmer", kind: "warm" });
   marks.sort((a, b) => a.idx - b.idx);
 
-  let segHtml = "", monthsHtml = "";
+  let segHtml = "";
   if (marks.length >= 2) {
     for (let i = 0; i < marks.length; i++) {
       const start = marks[i].idx;
@@ -1526,35 +1645,91 @@ function renderSeasonsView() {
   } else {
     segHtml = `<div class="timeline-seg" style="width:100%;background:${SEASON_PALETTE[0]}">Not enough seasonal contrast detected</div>`;
   }
-  monthsHtml = MONTH_SHORT.map(m => `<span>${m}</span>`).join("");
   $("#timelineTrack").innerHTML = segHtml;
-  $("#timelineMonths").innerHTML = monthsHtml;
+  $("#timelineMonths").innerHTML = MONTH_SHORT.map(m => `<span>${m}</span>`).join("");
+
+  const dateMarks = marks.map(m => ({ idx: m.idx, dateLabel: det.idxToLabel(m.idx).replace(/^(early|mid|late) /, "").slice(0, 3) + " " + det.keys[m.idx].split("-")[1].replace(/^0/, "") }));
+  renderTimelineMarks(dateMarks, n);
+
+  $("#timelineSectionTitle").textContent = `Estimated season timeline — ${contextLabel}`;
+  $("#timelineIntroNote").innerHTML = coverageNote;
 
   const notes = [];
-  if (det.coolingIdx !== null) notes.push(`Cooler pattern likely begins around <b>${det.idxToLabel(det.coolingIdx)}</b>.`);
-  if (det.warmingIdx !== null) notes.push(`Warmer pattern likely strengthens around <b>${det.idxToLabel(det.warmingIdx)}</b>.`);
-  if (det.wetStartIdx !== null) notes.push(`Wet/monsoon-like pattern usually develops around <b>${det.idxToLabel(det.wetStartIdx)}</b>.`);
-  if (det.wetEndIdx !== null) notes.push(`Wet pattern usually eases by <b>${det.idxToLabel(det.wetEndIdx)}</b>.`);
+  if (det.coolingIdx !== null) notes.push(`It <b>turns cooler around ${labelWithDate(det.idxToLabel(det.coolingIdx), det.keys, det.coolingIdx)}</b> — that's roughly where you'd start feeling the shift toward cold.`);
+  if (det.warmingIdx !== null) notes.push(`It <b>turns warmer around ${labelWithDate(det.idxToLabel(det.warmingIdx), det.keys, det.warmingIdx)}</b> — the point where heat starts building.`);
+  if (det.wetStartIdx !== null) notes.push(`Wet/monsoon-like conditions usually develop around <b>${labelWithDate(det.idxToLabel(det.wetStartIdx), det.keys, det.wetStartIdx)}</b>.`);
+  if (det.wetEndIdx !== null) notes.push(`The wet pattern usually eases by <b>${labelWithDate(det.idxToLabel(det.wetEndIdx), det.keys, det.wetEndIdx)}</b>.`);
   if (det.precipRange <= 5) notes.push("Rainfall is fairly steady across the year here — no strong wet/dry contrast detected.");
-  $("#seasonNotes").innerHTML = notes.map(n => `<div class="season-note">${n} <span style="opacity:.7">(estimated from historical climate patterns)</span></div>`).join("");
+  $("#seasonNotes").innerHTML = notes.map(n2 => `<div class="season-note">${n2}</div>`).join("");
+}
+
+function renderSeasonsView() {
+  const banner = $("#seasonsBanner"); banner.innerHTML = "";
+  renderRituStrip();
+
+  if (!STATE.climate) {
+    banner.innerHTML = bannerHtml("error", "Not enough historical data to estimate seasons for this location.");
+    $("#timelineTrack").innerHTML = ""; $("#timelineMarks").innerHTML = ""; $("#seasonNotes").innerHTML = ""; $("#monsoonSummary").innerHTML = "";
+    return;
+  }
+
+  const now = new Date();
+  $("#seasonsYearLabel").textContent = STATE.seasonsYear;
+  $("#seasonsYearNext").disabled = STATE.seasonsYear >= now.getFullYear();
+
+  let det, contextLabel, coverageNote, monthlyForMonsoon = STATE.climate.monthly, monthlySourceLabel = "recent years";
+
+  if (STATE.seasonsMode === "year") {
+    det = detectSeasonsForYear(STATE.seasonsYear);
+    STATE._seasonDetection = det; // month-modal reuses whichever was computed last
+    contextLabel = String(STATE.seasonsYear);
+    const actual = STATE.yearActual[STATE.seasonsYear];
+    const coveragePct = det && det.coverageFraction !== undefined ? Math.round(det.coverageFraction * 100) : 0;
+    if (actual && actual.monthly) { monthlyForMonsoon = actual.monthly; monthlySourceLabel = String(STATE.seasonsYear); }
+    if (!actual || !actual.doy) {
+      coverageNote = `<span class="tag estimated">Estimated</span> No observed data yet for ${STATE.seasonsYear} — showing the all-time climate pattern instead until real data comes in.`;
+    } else if (coveragePct >= 99) {
+      coverageNote = `<span class="tag live">Actual</span> Based entirely on ${STATE.seasonsYear}'s own observed daily data.`;
+    } else {
+      coverageNote = `<span class="tag live">Actual</span> ${coveragePct}% of ${STATE.seasonsYear} is real observed data (through ${actual.lastDate || "recently"})<span class="tag estimated" style="margin-left:4px">Estimated</span> the rest is filled in from the all-time climate pattern.`;
+    }
+  } else {
+    det = STATE._seasonDetection || detectSeasonsAllTime(STATE.climate);
+    STATE._seasonDetection = det;
+    contextLabel = "all-time pattern";
+    const yrs = STATE.climateMeta && STATE.climateMeta.years ? `${STATE.climateMeta.years[0]}–${STATE.climateMeta.years[1]}` : "recent years";
+    coverageNote = `Boundaries are <b>estimated from ${yrs} of historical climate data</b> at your selected location — not fixed calendar rules, and not a guarantee for any single year.`;
+    monthlySourceLabel = yrs;
+  }
+
+  if (!det) {
+    banner.innerHTML = bannerHtml("warn", "Couldn't confidently detect seasonal transitions from the available data.");
+    return;
+  }
+  renderSeasonDetection(det, contextLabel, coverageNote);
 
   // Monsoon summary card (month-level, easier to read than day-level)
-  const monthly = STATE.climate.monthly;
-  const meanMonthlyPrecip = monthly.reduce((a, b) => a + (b.avgPrecipTotal || 0), 0) / 12;
-  const wetMonths = monthly.filter(m => (m.avgPrecipTotal || 0) > meanMonthlyPrecip * 1.4).map(m => MONTH_NAMES[m.month]);
-  const wettest = monthly.reduce((a, b) => (b.avgPrecipTotal || 0) > (a.avgPrecipTotal || 0) ? b : a);
-  const driest = monthly.reduce((a, b) => (b.avgPrecipTotal ?? Infinity) < (a.avgPrecipTotal ?? Infinity) ? b : a);
-  $("#monsoonSummary").innerHTML = `
-    <div class="stat-grid">
-      <div class="stat"><div class="stat-label">Wettest month</div><div class="stat-val">${MONTH_NAMES[wettest.month]}</div><div class="stat-sub">${Math.round(wettest.avgPrecipTotal)} mm avg.</div></div>
-      <div class="stat"><div class="stat-label">Driest month</div><div class="stat-val">${MONTH_NAMES[driest.month]}</div><div class="stat-sub">${Math.round(driest.avgPrecipTotal)} mm avg.</div></div>
-    </div>
-    <div class="season-note" style="margin-top:12px">
-      ${wetMonths.length ? `Estimated wetter-than-average months: <b>${wetMonths.join(", ")}</b>.` : "No months stand out as significantly wetter than the yearly average."}
-      <span style="opacity:.7">(estimated from historical climate patterns, not a forecast)</span>
-    </div>`;
-  const yrs = STATE.climateMeta && STATE.climateMeta.years ? `${STATE.climateMeta.years[0]}–${STATE.climateMeta.years[1]}` : "recent years";
-  $("#seasonsDataStatus").innerHTML = `<span class="tag historical">Historical</span> based on ${yrs}` + (STATE.climateMeta && STATE.climateMeta.cached ? ` <span class="tag cached">cached</span>` : "");
+  const monthly = monthlyForMonsoon;
+  const validMonthly = monthly.filter(m => m.avgPrecipTotal !== null && m.avgPrecipTotal !== undefined);
+  if (validMonthly.length) {
+    const meanMonthlyPrecip = validMonthly.reduce((a, b) => a + (b.avgPrecipTotal || 0), 0) / validMonthly.length;
+    const wetMonths = validMonthly.filter(m => (m.avgPrecipTotal || 0) > meanMonthlyPrecip * 1.4).map(m => MONTH_NAMES[m.month]);
+    const wettest = validMonthly.reduce((a, b) => (b.avgPrecipTotal || 0) > (a.avgPrecipTotal || 0) ? b : a);
+    const driest = validMonthly.reduce((a, b) => (b.avgPrecipTotal ?? Infinity) < (a.avgPrecipTotal ?? Infinity) ? b : a);
+    $("#monsoonSummary").innerHTML = `
+      <div class="stat-grid">
+        <div class="stat"><div class="stat-label">Wettest month</div><div class="stat-val">${MONTH_NAMES[wettest.month]}</div><div class="stat-sub">${Math.round(wettest.avgPrecipTotal)} mm avg.</div></div>
+        <div class="stat"><div class="stat-label">Driest month</div><div class="stat-val">${MONTH_NAMES[driest.month]}</div><div class="stat-sub">${Math.round(driest.avgPrecipTotal)} mm avg.</div></div>
+      </div>
+      <div class="season-note" style="margin-top:12px">
+        ${wetMonths.length ? `Wetter-than-average months (${monthlySourceLabel}): <b>${wetMonths.join(", ")}</b>.` : "No months stand out as significantly wetter than the average."}
+      </div>`;
+  } else {
+    $("#monsoonSummary").innerHTML = `<p style="color:var(--ink-faint);font-size:13px">Not enough data to summarize rainfall for ${contextLabel}.</p>`;
+  }
+  $("#seasonsDataStatus").innerHTML = STATE.seasonsMode === "year"
+    ? coverageNote
+    : `<span class="tag historical">Historical</span> based on ${monthlySourceLabel}` + (STATE.climateMeta && STATE.climateMeta.cached ? ` <span class="tag cached">cached</span>` : "");
 }
 
 /* =========================================================================
@@ -1581,7 +1756,11 @@ async function switchView(view) {
   });
   if (view === "year") { await ensureYearData(); renderYearView(); }
   if (view === "daylight") { await ensureClimateData(); renderDaylightView(); }
-  if (view === "seasons") { await ensureClimateData(); renderSeasonsView(); }
+  if (view === "seasons") {
+    await ensureClimateData();
+    if (STATE.seasonsMode === "year") await loadActualYear(STATE.seasonsYear);
+    renderSeasonsView();
+  }
   if (view === "settings") renderSettingsView();
   if (view === "home") renderHome();
 }
@@ -1590,7 +1769,7 @@ async function ensureClimateData() {
   showToast("Loading historical climate data…");
   const r = await loadClimate(false);
   if (!r.ok) { showToast("Couldn't load historical data."); return; }
-  STATE._seasonDetection = detectSeasons(STATE.climate);
+  STATE._seasonDetection = detectSeasonsAllTime(STATE.climate);
 }
 async function ensureYearData() {
   await ensureClimateData();
@@ -1676,6 +1855,22 @@ function wireModals() {
   $("#monthModalClose").addEventListener("click", () => $("#monthModal").classList.add("hidden"));
   $("#monthModal").addEventListener("click", e => { if (e.target.id === "monthModal") $("#monthModal").classList.add("hidden"); });
 }
+function wireSeasonsControls() {
+  $all("#seasonsModeSeg button").forEach(b => b.addEventListener("click", async () => {
+    STATE.seasonsMode = b.dataset.val;
+    $all("#seasonsModeSeg button").forEach(x => x.setAttribute("aria-pressed", x === b));
+    $("#seasonsYearNav").style.display = STATE.seasonsMode === "year" ? "flex" : "none";
+    if (STATE.seasonsMode === "year") { showToast("Loading " + STATE.seasonsYear + "…"); await loadActualYear(STATE.seasonsYear); }
+    renderSeasonsView();
+  }));
+  $("#seasonsYearPrev").addEventListener("click", async () => {
+    STATE.seasonsYear--; await loadActualYear(STATE.seasonsYear); renderSeasonsView();
+  });
+  $("#seasonsYearNext").addEventListener("click", async () => {
+    if (STATE.seasonsYear >= new Date().getFullYear()) return;
+    STATE.seasonsYear++; await loadActualYear(STATE.seasonsYear); renderSeasonsView();
+  });
+}
 function wireYearControls() {
   $("#yearPrev").addEventListener("click", async () => { STATE.selectedYear--; await ensureYearData(); renderYearView(); });
   $("#yearNext").addEventListener("click", async () => { STATE.selectedYear++; await ensureYearData(); renderYearView(); });
@@ -1728,7 +1923,7 @@ window.addEventListener("resize", () => {
 async function init() {
   $("#locBtnText").textContent = `${STATE.location.name}${STATE.location.admin1 ? ", " + STATE.location.admin1 : ""}`;
   wireNav(); wireModals(); wireLocationSearch(); wireGeolocation();
-  wireYearControls(); wireDaylightControls(); wireSettingsControls();
+  wireYearControls(); wireDaylightControls(); wireSettingsControls(); wireSeasonsControls();
 
   renderHome(); // render skeleton state immediately
   const fRes = await loadForecast(false);
