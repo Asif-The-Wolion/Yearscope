@@ -358,6 +358,10 @@ canvas.chart-canvas{display:block;touch-action:pan-y}
     <div class="card">
       <div class="chart-wrap"><canvas class="chart-canvas" id="tempChart" height="200"></canvas></div>
       <div class="legend" id="tempLegend"></div>
+      <div class="section-title" style="margin:16px 0 6px;font-size:12px">Temperature trend</div>
+      <div class="timeline-track" id="tempTrendTrack" style="height:38px"></div>
+      <div class="timeline-months" id="tempTrendMonths"></div>
+      <div id="tempTrendNotes"></div>
     </div>
 
     <div class="section-title">Rainfall &amp; rainy days</div>
@@ -1291,33 +1295,79 @@ function renderDaylenChart(climate, lat, lon) {
   ctx.textAlign = "left";
   $("#daylenLegend").innerHTML = `<span class="legend-item"><span class="legend-swatch" style="background:#DB9A34"></span>Daylight duration (hours)</span>`;
 }
+function localHourFloat(minsUTC, tz) {
+  if (minsUTC === null || minsUTC === undefined || isNaN(minsUTC)) return null;
+  const base = Date.UTC(2000, 0, 1, 0, 0, 0);
+  const d = new Date(base + minsUTC * 60000);
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { hour: "2-digit", minute: "2-digit", hourCycle: "h23", timeZone: tz || "UTC" }).formatToParts(d);
+    let h = 0, m = 0;
+    parts.forEach(p => { if (p.type === "hour") h = parseInt(p.value, 10); if (p.type === "minute") m = parseInt(p.value, 10); });
+    return h + m / 60;
+  } catch (e) {
+    return (((minsUTC / 60) % 24) + 24) % 24;
+  }
+}
+function formatHourFloatClock(v) {
+  if (v === null || v === undefined || isNaN(v)) return "";
+  let hh = Math.floor(((v % 24) + 24) % 24);
+  let mm = Math.round((v - Math.floor(v)) * 60);
+  if (mm === 60) { mm = 0; hh = (hh + 1) % 24; }
+  if (STATE.settings.timeFormat === "12") {
+    const period = hh < 12 ? "AM" : "PM";
+    let h12 = hh % 12; if (h12 === 0) h12 = 12;
+    return `${h12}:${pad2(mm)}${period}`;
+  }
+  return `${pad2(hh)}:${pad2(mm)}`;
+}
 function renderSunTrendChart(lat, lon, tz) {
   const canvas = $("#sunTrendChart");
-  const cssW = Math.max(canvas.parentElement.clientWidth, 320), cssH = 200;
+  const cssW = Math.max(canvas.parentElement.clientWidth, 320), cssH = 220;
   const ctx = setupCanvasHiDPI(canvas, cssW, cssH);
   ctx.clearRect(0, 0, cssW, cssH);
-  const pad = { left: 34, right: 10, top: 10, bottom: 20 };
+  const pad = { left: 46, right: 10, top: 10, bottom: 20 };
   const year = 2001;
   const sunrises = [], sunsets = [];
   for (let m = 0; m < 12; m++) {
     for (let d = 1; d <= daysInMonth(year, m); d += 3) {
       const st = computeSunTimes(year, m, d, lat, lon);
-      sunrises.push(st.sunrise !== null ? (st.sunrise / 60) : null);
-      sunsets.push(st.sunset !== null ? (st.sunset / 60) : null);
+      sunrises.push(localHourFloat(st.sunrise, tz));
+      sunsets.push(localHourFloat(st.sunset, tz));
     }
   }
   const allVals = sunrises.concat(sunsets).filter(v => v !== null);
-  const yMin = Math.floor(Math.min(...allVals) - 1), yMax = Math.ceil(Math.max(...allVals) + 1);
+  if (!allVals.length) { $("#sunTrendLegend").innerHTML = ""; return; }
+  const yMin = Math.max(0, Math.floor(Math.min(...allVals) - 1));
+  const yMax = Math.min(24, Math.ceil(Math.max(...allVals) + 1));
   const xForI = i => pad.left + (cssW - pad.left - pad.right) * (i / (sunrises.length - 1));
-  drawAxes(ctx, cssW, cssH, pad, yMin, yMax, v => fmtMinutesAsClock(((v % 24) + 24) % 24 * 60, "UTC"));
-  drawLineSeries(ctx, sunrises, xForI, pad, cssH, yMin, yMax, "#DB9A34", 2);
-  drawLineSeries(ctx, sunsets, xForI, pad, cssH, yMin, yMax, "#6B4E8E", 2);
+
+  drawAxes(ctx, cssW, cssH, pad, yMin, yMax, formatHourFloatClock);
+
+  // Shade the daylight band between sunrise and sunset so the chart reads at a glance.
+  ctx.fillStyle = "rgba(219,154,52,.12)";
+  ctx.beginPath();
+  let started = false;
+  sunrises.forEach((v, i) => {
+    if (v === null) return;
+    const x = xForI(i), y = pad.top + (cssH - pad.top - pad.bottom) * (1 - (v - yMin) / (yMax - yMin || 1));
+    if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+  });
+  for (let i = sunsets.length - 1; i >= 0; i--) {
+    const v = sunsets[i]; if (v === null) continue;
+    const x = xForI(i), y = pad.top + (cssH - pad.top - pad.bottom) * (1 - (v - yMin) / (yMax - yMin || 1));
+    ctx.lineTo(x, y);
+  }
+  ctx.closePath(); ctx.fill();
+
+  drawLineSeries(ctx, sunrises, xForI, pad, cssH, yMin, yMax, "#DB9A34", 2.5);
+  drawLineSeries(ctx, sunsets, xForI, pad, cssH, yMin, yMax, "#6B4E8E", 2.5);
   ctx.fillStyle = "#4B5C64"; ctx.font = "10px -apple-system,sans-serif"; ctx.textAlign = "center";
   for (let i = 0; i < 12; i++) ctx.fillText(MONTH_SHORT[i], pad.left + (cssW - pad.left - pad.right) * (i / 11), cssH - 4);
   ctx.textAlign = "left";
   $("#sunTrendLegend").innerHTML = `
-    <span class="legend-item"><span class="legend-swatch" style="background:#DB9A34"></span>Sunrise (UTC hour shown)</span>
-    <span class="legend-item"><span class="legend-swatch" style="background:#6B4E8E"></span>Sunset (UTC hour shown)</span>`;
+    <span class="legend-item"><span class="legend-swatch" style="background:#DB9A34"></span>Sunrise (local time)</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:#6B4E8E"></span>Sunset (local time)</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:rgba(219,154,52,.35)"></span>Daylight</span>`;
 }
 function drawSunArc(nowFrac, isDaytime) {
   const svg = $("#sunArc");
@@ -1460,6 +1510,7 @@ function renderYearView() {
   }
   renderMonthGrid();
   renderTempChart(STATE.climate.monthly, (actual && actual.monthly) ? actual.monthly : null);
+  renderTempTrend();
   renderRainChart(STATE.climate.monthly);
   const wettest = STATE.climate.monthly.reduce((a, b) => (b.avgPrecipTotal || 0) > (a.avgPrecipTotal || 0) ? b : a);
   const driest = STATE.climate.monthly.reduce((a, b) => (b.avgPrecipTotal ?? Infinity) < (a.avgPrecipTotal ?? Infinity) ? b : a);
@@ -1471,6 +1522,27 @@ function renderYearView() {
     `<span class="tag historical">Historical normal</span> ${yrs} average` +
     (actual && actual.monthly ? ` &nbsp;·&nbsp; <span class="tag live">Actual</span> observed data for ${STATE.selectedYear}` : "") +
     (STATE.climateMeta && STATE.climateMeta.cached ? ` <span class="tag cached">cached</span>` : "");
+}
+function renderTempTrend() {
+  const det = detectSeasonsAllTime(STATE.climate);
+  const track = $("#tempTrendTrack"), months = $("#tempTrendMonths"), notesEl = $("#tempTrendNotes");
+  if (!det || det.warmingIdx === null || det.coolingIdx === null) {
+    track.innerHTML = `<div class="timeline-seg" style="width:100%;background:#7C8B92">Not enough temperature contrast detected at this location</div>`;
+    months.innerHTML = ""; notesEl.innerHTML = "";
+    return;
+  }
+  const n = det.keys.length;
+  const lenWarm = ((det.coolingIdx - det.warmingIdx + n) % n) || n;
+  const pctWarm = (lenWarm / n) * 100;
+  const pctCool = 100 - pctWarm;
+  track.innerHTML =
+    `<div class="timeline-seg" style="width:${pctWarm}%;background:#DB9A34">Warming trend</div>` +
+    `<div class="timeline-seg" style="width:${pctCool}%;background:#2F6690">Cooling trend</div>`;
+  months.innerHTML = MONTH_SHORT.map(m => `<span>${m}</span>`).join("");
+  notesEl.innerHTML = [
+    `Temperature starts <b>dropping</b> around <b>${labelWithDate(det.idxToLabel(det.coolingIdx), det.keys, det.coolingIdx)}</b>.`,
+    `Temperature starts <b>rising</b> around <b>${labelWithDate(det.idxToLabel(det.warmingIdx), det.keys, det.warmingIdx)}</b>.`
+  ].map(n2 => `<div class="season-note">${n2}</div>`).join("");
 }
 function openMonthModal(monthIdx) {
   const climate = STATE.climate;
