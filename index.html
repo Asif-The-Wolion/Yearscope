@@ -1160,8 +1160,8 @@ function detectSeasons(doyBundle) {
   const { keys, series } = doyBundle;
   const meanTemp = series.map(s => s.mean);
   const precip = series.map(s => s.precip);
-  const rollTemp = rollingAverage(meanTemp, 15);
-  const rollPrecip = rollingAverage(precip, 15);
+  const rollTemp = rollingAverage(meanTemp, 21);
+  const rollPrecip = rollingAverage(precip, 21);
 
   const validTemps = rollTemp.filter(v => v !== null);
   const validPrecip = rollPrecip.filter(v => v !== null);
@@ -1173,35 +1173,59 @@ function detectSeasons(doyBundle) {
   const precipRange = validPrecip.length ? Math.max(...validPrecip) - Math.min(...validPrecip) : 0;
 
   const wetThreshold = annualMeanPrecip + precipRange * 0.15;
+  const n = keys.length;
 
-  function findTransitions(arr, threshold, direction) {
-    // returns indices where arr crosses threshold in given direction ('up'/'down'), sustained for >=10 days after
-    const hits = [];
-    const n = arr.length;
-    for (let i = 0; i < n; i++) {
-      const cur = arr[i], prev = arr[(i - 1 + n) % n];
-      if (cur === null || prev === null) continue;
-      const crossedUp = prev < threshold && cur >= threshold;
-      const crossedDown = prev >= threshold && cur < threshold;
-      if ((direction === "up" && crossedUp) || (direction === "down" && crossedDown)) {
-        // check sustained for next 10 days
-        let sustained = true;
-        for (let k = 1; k <= 10; k++) {
-          const v = arr[(i + k) % n];
-          if (v === null) continue;
-          if (direction === "up" && v < threshold) { sustained = false; break; }
-          if (direction === "down" && v >= threshold) { sustained = false; break; }
-        }
-        if (sustained) hits.push(i);
+  /**
+   * Find the longest contiguous circular run where arr crosses the threshold
+   * in the given direction (mode "above"/"below"). Picking the single longest
+   * block — rather than the first crossing found — means a short, isolated
+   * noise spike (e.g. one or two pre-monsoon thunderstorms bumping the
+   * smoothed average briefly) cannot get mistaken for the real season: the
+   * genuine multi-month season is reliably the longest block, everywhere.
+   * Short dips BELOW threshold (a brief monsoon lull, a single noisy day)
+   * are bridged rather than allowed to fracture one real season into two —
+   * only a gap longer than maxGapDays is treated as a genuine break.
+   * Purely data-driven — no hemisphere or calendar assumptions baked in.
+   */
+  function longestRunCircular(arr, threshold, mode, maxGapDays) {
+    const test = v => v !== null && v !== undefined && !isNaN(v) && (mode === "above" ? v >= threshold : v < threshold);
+    let anchor = -1;
+    for (let i = 0; i < n; i++) { if (arr[i] !== null && !test(arr[i])) { anchor = i; break; } }
+    if (anchor === -1) return null; // no clear "outside" period to anchor on — no meaningful run
+
+    // Walk once (starting from a known "outside" day) building above/below run lengths in order.
+    const runs = []; // { above: bool, start: idx, len: n }
+    let curAbove = null, curStart = null, curLen = 0;
+    for (let step = 0; step < n; step++) {
+      const i = (anchor + step) % n;
+      const isAbove = test(arr[i]);
+      if (curAbove === null) { curAbove = isAbove; curStart = i; curLen = 1; }
+      else if (isAbove === curAbove) { curLen++; }
+      else { runs.push({ above: curAbove, start: curStart, len: curLen }); curAbove = isAbove; curStart = i; curLen = 1; }
+    }
+    runs.push({ above: curAbove, start: curStart, len: curLen });
+
+    // Bridge short "below" runs sitting between two "above" runs.
+    const bridged = [];
+    for (let i = 0; i < runs.length; i++) {
+      const r = runs[i];
+      if (!r.above && r.len <= maxGapDays && bridged.length && bridged[bridged.length - 1].above) {
+        bridged[bridged.length - 1].len += r.len; // absorb the gap into the preceding "above" run
+      } else {
+        bridged.push(Object.assign({}, r));
       }
     }
-    return hits;
-  }
+    // Merge-wrap: if the run list starts and ends both "above" (wrapped around the circle), join them.
+    if (bridged.length > 1 && bridged[0].above && bridged[bridged.length - 1].above) {
+      bridged[0].start = bridged[bridged.length - 1].start;
+      bridged[0].len += bridged.pop().len;
+    }
 
-  const warmingStarts = findTransitions(rollTemp, (annualMeanTemp), "up");
-  const coolingStarts = findTransitions(rollTemp, (annualMeanTemp), "down");
-  const wetStarts = precipRange > 5 ? findTransitions(rollPrecip, wetThreshold, "up") : [];
-  const wetEnds = precipRange > 5 ? findTransitions(rollPrecip, wetThreshold, "down") : [];
+    let best = null;
+    bridged.forEach(r => { if (r.above && (!best || r.len > best.len)) best = r; });
+    if (!best || best.len < 20) return null; // require a real multi-week block, not a blip
+    return { startIdx: best.start, endIdx: (best.start + best.len) % n, length: best.len };
+  }
 
   function idxToLabel(i) {
     const key = keys[i]; // MM-DD
@@ -1209,26 +1233,20 @@ function detectSeasons(doyBundle) {
     const part = dd <= 10 ? "early" : dd <= 20 ? "mid" : "late";
     return `${part} ${MONTH_NAMES[mm - 1]}`;
   }
-  function pickFirst(arr) { return arr.length ? arr[0] : null; }
-  function pickNextAfter(startIdx, candidates, n) {
-    // circular: pick the candidate with the smallest forward distance from startIdx
-    if (!candidates.length) return null;
-    if (startIdx === null) return candidates[0];
-    let best = null, bestDist = Infinity;
-    candidates.forEach(c => {
-      const dist = ((c - startIdx) + n) % n;
-      if (dist > 0 && dist < bestDist) { best = c; bestDist = dist; }
-    });
-    return best !== null ? best : candidates[0];
-  }
 
-  const wetStartIdx = pickFirst(wetStarts);
-  const wetEndIdx = pickNextAfter(wetStartIdx, wetEnds, keys.length);
+  const tempRun = longestRunCircular(rollTemp, annualMeanTemp, "above", 7);
+  const warmingIdx = tempRun ? tempRun.startIdx : null;
+  const coolingIdx = tempRun ? tempRun.endIdx : null;
+
+  let wetStartIdx = null, wetEndIdx = null;
+  if (precipRange > 5) {
+    const wetRun = longestRunCircular(rollPrecip, wetThreshold, "above", 7);
+    if (wetRun) { wetStartIdx = wetRun.startIdx; wetEndIdx = wetRun.endIdx; }
+  }
 
   return {
     keys, rollTemp, rollPrecip, annualMeanTemp, annualMeanPrecip, tempRange, precipRange,
-    warmingIdx: pickFirst(warmingStarts), coolingIdx: pickFirst(coolingStarts),
-    wetStartIdx, wetEndIdx,
+    warmingIdx, coolingIdx, wetStartIdx, wetEndIdx,
     idxToLabel
   };
 }
